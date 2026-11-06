@@ -1,0 +1,13 @@
+# Пользователи, счета, лимиты, резервы. Шаблон — charts/java-service
+name: account
+port: 8081
+image:
+  repository: ghcr.io/payments-app-org/payments-account
+  tag: afe9cd4d1730ca3b71a6a21afdd5dfb08c856a1d
+env:
+  DB_URL: jdbc:postgresql://postgres:5432/payments
+secretEnv:
+  CARD_HMAC_KEY: CARD_HMAC_KEY
+  CARD_ENCRYPTION_KEY: CARD_ENCRYPTION_KEY
+ingress:
+  paths: [/api/users]

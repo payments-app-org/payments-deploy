@@ -1,0 +1,11 @@
+# Заглушки сторонних поставщиков. Шаблон — charts/java-service
+name: providers
+port: 8088
+image:
+  repository: ghcr.io/payments-app-org/payments-providers
+  tag: 3c352a4e342b449e346c8f307902eba0ae784c48
+env:
+  REDIS_HOST: redis
+resources:
+  cpu: 50m
+  memory: 448Mi

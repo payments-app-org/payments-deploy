@@ -1,0 +1,4 @@
+# Фронтенд: nginx со статикой. Шаблон — charts/frontend
+image:
+  repository: ghcr.io/payments-app-org/payments-frontend
+  tag: pending-first-image

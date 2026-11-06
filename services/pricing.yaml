@@ -1,0 +1,15 @@
+# Комиссии и подписанные котировки. Шаблон — charts/java-service
+name: pricing
+port: 8082
+image:
+  repository: ghcr.io/payments-app-org/payments-pricing
+  tag: 6e4bbd1c64a25e1c8c2c546ce817995ddc41f7e5
+env:
+  DB_URL: jdbc:postgresql://postgres:5432/payments
+  REDIS_HOST: redis
+  ACCOUNT_URL: http://account:8081
+  BILLER_URL: http://biller:8087
+secretEnv:
+  QUOTE_SECRET: QUOTE_SECRET
+ingress:
+  paths: [/api/pricing]

@@ -1,0 +1,12 @@
+name: frontend
+port: 8080
+replicas: 1
+image:
+  repository: ""
+  # SHA коммита. Обновляет CI после слияния PR в main фронтенда
+  tag: ""
+resources:
+  cpu: 20m
+  memory: 32Mi
+ingress:
+  host: payments.localhost

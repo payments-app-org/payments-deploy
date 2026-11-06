@@ -1,0 +1,23 @@
+# fraud: шаблон charts/java-service + настройки services/fraud.yaml. Изменился любой из них в main — Argo CD выкатывает
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fraud
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/payments-app-org/payments-deploy.git
+    targetRevision: main
+    path: charts/java-service
+    helm:
+      valueFiles: [../../services/fraud.yaml]
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: payments
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: [CreateNamespace=true]

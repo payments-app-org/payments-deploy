@@ -1,0 +1,20 @@
+# «Главное» приложение Argo CD (app of apps): следит за папкой argocd/apps и создаёт описанные там приложения.
+# Новый сервис = новый файл в argocd/apps. Ставит scripts/cluster-up.sh, дальше Argo CD берёт всё из git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/payments-app-org/payments-deploy.git
+    targetRevision: main
+    path: argocd/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

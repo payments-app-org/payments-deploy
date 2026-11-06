@@ -1,0 +1,5 @@
+apiVersion: v2
+name: java-service
+description: Общий шаблон Java-сервиса payments-app (Spring Boot). Настройки сервиса — services/<сервис>.yaml
+type: application
+version: 0.1.0

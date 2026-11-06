@@ -1,0 +1,21 @@
+# Оркестратор платежей (сага). Шаблон — charts/java-service
+name: payment
+port: 8083
+image:
+  repository: ghcr.io/payments-app-org/payments-payment
+  tag: 0a1951bf7a7c7e17e0a81cf6792d8eeb13b0508b
+env:
+  DB_URL: jdbc:postgresql://postgres:5432/payments
+  REDIS_HOST: redis
+  KAFKA_BOOTSTRAP: kafka:9092
+  ACCOUNT_URL: http://account:8081
+  FRAUD_URL: http://fraud:8084
+  BILLER_URL: http://biller:8087
+  PROCESSING_URL: http://processing:8085
+secretEnv:
+  QUOTE_SECRET: QUOTE_SECRET
+resources:
+  cpu: 100m
+  memory: 640Mi
+ingress:
+  paths: [/api/payments]

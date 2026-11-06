@@ -1,0 +1,15 @@
+# Шаблоны и автоплатежи. Шаблон — charts/java-service
+name: autopayments
+port: 8089
+image:
+  repository: ghcr.io/payments-app-org/payments-autopayments
+  tag: de9bef1f13cc755a21c408aa3c1de84a7b9114f5
+env:
+  DB_URL: jdbc:postgresql://postgres:5432/payments
+  REDIS_HOST: redis
+  ACCOUNT_URL: http://account:8081
+  PRICING_URL: http://pricing:8082
+  PAYMENT_URL: http://payment:8083
+  BILLER_URL: http://biller:8087
+ingress:
+  paths: [/api/autopayments]

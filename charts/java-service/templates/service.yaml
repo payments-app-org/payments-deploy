@@ -1,0 +1,14 @@
+# Постоянный адрес сервиса внутри кластера: http://<name>:<port> — ведёт на готовые поды
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    {{- include "java-service.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "java-service.selector" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.port }}
+      targetPort: http

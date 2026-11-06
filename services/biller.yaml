@@ -1,0 +1,15 @@
+# Справочники и интеграции с поставщиками. Шаблон — charts/java-service
+name: biller
+port: 8087
+image:
+  repository: ghcr.io/payments-app-org/payments-biller
+  tag: 6e6f5821f4d461aa6a19bc98900ff4b7307565c7
+env:
+  DB_URL: jdbc:postgresql://postgres:5432/payments
+  REDIS_HOST: redis
+  KAFKA_BOOTSTRAP: kafka:9092
+  GIS_GMP_URL: http://providers:8088
+  GATEWAY_URL: http://providers:8088
+  PROCESSING_URL: http://processing:8085
+ingress:
+  paths: [/api/biller]

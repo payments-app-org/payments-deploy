@@ -1,0 +1,11 @@
+# Локальный кластер: k3s (облегчённый Kubernetes) в Docker. Один узел — на ноутбуке больше не нужно.
+# Порт 80 ноутбука → вход в кластер (Traefik): http://payments.localhost, http://argocd.localhost
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: payments
+servers: 1
+agents: 0
+ports:
+  - port: 80:80
+    nodeFilters: [loadbalancer]

@@ -1,0 +1,30 @@
+# Значения по умолчанию для всех Java-сервисов. Сервис переопределяет нужное в services/<сервис>.yaml.
+
+# Имя сервиса: имя Deployment, Service и адрес внутри кластера (http://<name>:<port>)
+name: ""
+# Порт, который слушает приложение (server.port в его application.yml)
+port: 8080
+replicas: 1
+
+image:
+  repository: ""
+  # SHA коммита. Обновляет CI после слияния PR в main сервиса
+  tag: ""
+
+# Переменные окружения: адреса соседей, баз, брокера
+env: {}
+# Переменные из секрета: ИМЯ_ПЕРЕМЕННОЙ: ключ в секрете secretName (секрет создаёт scripts/secrets.sh)
+secretEnv: {}
+secretName: payments-secrets
+
+# Память: request — сколько кластер резервирует под под, limit — больше нельзя (иначе OOMKilled).
+# Куча JVM — 60% от лимита, остальное — метаспейс, потоки, кэш кода.
+resources:
+  cpu: 100m
+  memory: 576Mi
+jvmOptions: -XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError
+
+# Вход снаружи: какие пути на http://payments.localhost ведут в этот сервис
+ingress:
+  host: payments.localhost
+  paths: []

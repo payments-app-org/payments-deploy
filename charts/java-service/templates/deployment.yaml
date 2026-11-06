@@ -1,0 +1,82 @@
+# Как запускать сервис: образ, копии, переменные, пробы, память
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    {{- include "java-service.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      {{- include "java-service.selector" . | nindent 6 }}
+  # Обновление без простоя: сначала новый под становится готов (readiness), потом гасим старый
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "java-service.labels" . | nindent 8 }}
+    spec:
+      # Без переменных вида REDIS_PORT=tcp://10.43.0.5:6379, которые Kubernetes иначе добавляет
+      # для каждого Service: они перебивают настройки приложения с теми же именами
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: app
+          image: "{{ required "image.repository обязателен" .Values.image.repository }}:{{ required "image.tag обязателен" .Values.image.tag }}"
+          ports:
+            - name: http
+              containerPort: {{ .Values.port }}
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: {{ .Values.jvmOptions | quote }}
+            {{- range $name, $value := .Values.env }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- range $name, $key := .Values.secretEnv }}
+            - name: {{ $name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.secretName }}
+                  key: {{ $key }}
+            {{- end }}
+          # Старт JVM и миграции Liquibase: пока проба не прошла, liveness не проверяется (до 5 минут)
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          # Процесс завис — перезапустить
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          # Готов принимать запросы (на месте БД, Redis) — только тогда трафик идёт в под
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          # Перед остановкой пауза: Service успевает убрать под из списка, новые запросы в него не идут
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          resources:
+            requests:
+              cpu: {{ .Values.resources.cpu }}
+              memory: {{ .Values.resources.memory }}
+            limits:
+              memory: {{ .Values.resources.memory }}
