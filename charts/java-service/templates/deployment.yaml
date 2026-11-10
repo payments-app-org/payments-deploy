@@ -80,9 +80,12 @@ spec:
             preStop:
               sleep:
                 seconds: 5
+          # Процессор: request = limit. Предел нужен, чтобы при одновременном старте всех сервисов JVM не заняли все ядра:
+          # иначе задыхаются Kubernetes и CoreDNS (DNS кластера), сервисы не находят postgres и падают по кругу
           resources:
             requests:
               cpu: {{ .Values.resources.cpu }}
               memory: {{ .Values.resources.memory }}
             limits:
+              cpu: {{ .Values.resources.cpu }}
               memory: {{ .Values.resources.memory }}
