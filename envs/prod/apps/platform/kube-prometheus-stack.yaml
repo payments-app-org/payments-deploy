@@ -1,0 +1,33 @@
+# Метрики: Prometheus, Grafana, node-exporter, kube-state-metrics. Чарт и его версия — здесь, настройки —
+# platform/kube-prometheus-stack/values.yaml (общие) и envs/prod/platform/kube-prometheus-stack.yaml (окружение)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 93.1.1 # Prometheus Operator v0.95.1, Grafana 14.4.0
+      helm:
+        valueFiles:
+          - $values/platform/kube-prometheus-stack/values.yaml
+          - $values/envs/prod/platform/kube-prometheus-stack.yaml
+    # Наш репозиторий — только как источник файлов настроек ($values)
+    - repoURL: https://github.com/payments-app-org/payments-deploy.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry:
+      limit: 10
+      backoff: {duration: 10s, factor: 2, maxDuration: 3m}

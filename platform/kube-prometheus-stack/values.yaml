@@ -1,0 +1,104 @@
+# Метрики: Prometheus (собирает и хранит), Grafana (графики), сбор метрик узлов (node-exporter) и объектов
+# Kubernetes (kube-state-metrics), Prometheus Operator (настраивает сбор по объектам ServiceMonitor).
+# Чарт prometheus-community/kube-prometheus-stack, версия — envs/<окружение>/apps/platform/kube-prometheus-stack.yaml.
+# Срок хранения, память, хосты — envs/<окружение>/platform/kube-prometheus-stack.yaml
+
+# Тревоги — отдельной задачей: Alertmanager (кому и как отправлять: Telegram…) и правила тревог пока не ставим
+alertmanager:
+  enabled: false
+defaultRules:
+  create: false
+
+# k3s собран в одну программу: метрики планировщика, контроллеров, etcd и kube-proxy отдельно не снять
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheusOperator:
+  # Проверка правил тревог при применении: правил пока нет, а задачи выпуска сертификатов для неё
+  # Argo CD при каждой сверке видит как изменения
+  admissionWebhooks:
+    enabled: false
+  tls:
+    enabled: false
+
+prometheus:
+  prometheusSpec:
+    # Собирать по всем ServiceMonitor/PodMonitor в кластере, а не только помеченным этим чартом:
+    # ServiceMonitor сервисов создаёт наш чарт charts/java-service
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+  route:
+    main:
+      enabled: true
+      parentRefs:
+        - name: external
+          namespace: traefik
+
+grafana:
+  # Пароль admin — в секрете grafana-admin (создаёт scripts/secrets.sh): сгенерированный чартом пароль
+  # менялся бы при каждой сверке Argo CD
+  admin:
+    existingSecret: grafana-admin
+  # Источник Alertmanager в Grafana — вместе с самим Alertmanager, позже
+  sidecar:
+    datasources:
+      alertmanager:
+        enabled: false
+  # Тестовый под Helm (helm test) не нужен: состояние проверяет Argo CD
+  testFramework:
+    enabled: false
+  route:
+    main:
+      enabled: true
+      parentRefs:
+        - name: external
+          namespace: traefik
+  # Prometheus подключает сам чарт; логи и трассы — здесь. Из строки лога — переход к трассе по traceId,
+  # из трассы — к логам этого запроса
+  additionalDataSources:
+    - name: Loki
+      uid: loki
+      type: loki
+      url: http://loki.monitoring:3100
+      jsonData:
+        derivedFields:
+          - name: traceId
+            datasourceUid: jaeger
+            matcherRegex: '"trace[._]?[iI]d":"(\w+)"'
+            url: "$${__value.raw}"
+    - name: Jaeger
+      uid: jaeger
+      type: jaeger
+      url: http://jaeger.monitoring:16686
+      jsonData:
+        tracesToLogsV2:
+          datasourceUid: loki
+          customQuery: true
+          query: '{namespace="payments"} |= "$${__trace.traceId}"'
+  # Готовые графики Java-сервисов с grafana.com (метрики Micrometer) — папка payments-app
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: payments-app
+          folder: payments-app
+          type: file
+          options:
+            path: /var/lib/grafana/dashboards/payments-app
+  dashboards:
+    payments-app:
+      jvm-micrometer:
+        gnetId: 4701
+        revision: 10
+        datasource: Prometheus
+      spring-boot:
+        gnetId: 19004
+        revision: 1
+        datasource: Prometheus

@@ -1,0 +1,33 @@
+# Сборщик логов подов → Loki. Чарт и его версия — здесь, настройки — platform/alloy/values.yaml (общие)
+# и envs/prod/platform/alloy.yaml (окружение)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      targetRevision: 1.15.0 # Alloy v1.21.3
+      helm:
+        valueFiles:
+          - $values/platform/alloy/values.yaml
+          - $values/envs/prod/platform/alloy.yaml
+    # Наш репозиторий — только как источник файлов настроек ($values)
+    - repoURL: https://github.com/payments-app-org/payments-deploy.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry:
+      limit: 10
+      backoff: {duration: 10s, factor: 2, maxDuration: 3m}

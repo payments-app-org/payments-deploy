@@ -1,0 +1,57 @@
+# Метрики в окружении prod: срок хранения, диск, память, хосты
+prometheus:
+  prometheusSpec:
+    # Хранить 2 дня, но не больше 1,5 ГБ: на ноутбуке история за месяц не нужна
+    retention: 2d
+    retentionSize: 1500MB
+    resources:
+      requests:
+        cpu: 100m
+        memory: 384Mi
+      limits:
+        memory: 640Mi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 2Gi
+  route:
+    main:
+      hostnames: [prometheus.localhost]
+
+grafana:
+  route:
+    main:
+      hostnames: [grafana.localhost]
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      memory: 320Mi
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 48Mi
+    limits:
+      memory: 96Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 24Mi
+    limits:
+      memory: 64Mi

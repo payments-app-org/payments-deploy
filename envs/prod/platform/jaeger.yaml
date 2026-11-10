@@ -1,0 +1,10 @@
+# Трассировка в окружении prod: хост, память
+jaeger:
+  httproute:
+    hostnames: [jaeger.localhost]
+  resources:
+    requests:
+      cpu: 20m
+      memory: 128Mi
+    limits:
+      memory: 384Mi

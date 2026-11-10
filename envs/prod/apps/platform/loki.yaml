@@ -1,0 +1,33 @@
+# Хранилище логов. Чарт и его версия — здесь, настройки — platform/loki/values.yaml (общие)
+# и envs/prod/platform/loki.yaml (окружение)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: loki
+      targetRevision: 7.5.0 # Loki 3.6.16
+      helm:
+        valueFiles:
+          - $values/platform/loki/values.yaml
+          - $values/envs/prod/platform/loki.yaml
+    # Наш репозиторий — только как источник файлов настроек ($values)
+    - repoURL: https://github.com/payments-app-org/payments-deploy.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry:
+      limit: 10
+      backoff: {duration: 10s, factor: 2, maxDuration: 3m}
