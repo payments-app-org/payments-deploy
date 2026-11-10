@@ -38,11 +38,13 @@ spec:
               path: /
               port: http
             periodSeconds: 5
+            timeoutSeconds: 3
           livenessProbe:
             httpGet:
               path: /
               port: http
             periodSeconds: 10
+            timeoutSeconds: 3
           resources:
             requests:
               cpu: {{ .Values.resources.cpu }}
