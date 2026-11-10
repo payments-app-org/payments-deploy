@@ -1,7 +1,7 @@
 # pricing в окружении prod: версия образа, число подов, память
 image:
   # SHA коммита сервиса. Записывает CI (scripts/set-image.sh) по кнопке выкатки
-  tag: 7f66d96dfc25e9e3b52e39c2fa8daa095687c47b
+  tag: cde935ad1d5aede792a19c12c0da449e66d28f8f
 replicas: 1
 resources:
   cpu: 100m
