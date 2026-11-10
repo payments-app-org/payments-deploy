@@ -27,12 +27,14 @@ grafana:
       hostnames: [grafana.localhost]
   persistence:
     size: 1Gi
+  # Grafana 13 на пиках берёт до ~500 МБ. Чарт передаёт Grafana GOMEMLIMIT = 90% лимита: если лимит меньше нужного,
+  # сборщик мусора Go работает без остановки и занимает все ядра
   resources:
     requests:
       cpu: 50m
-      memory: 192Mi
+      memory: 256Mi
     limits:
-      memory: 384Mi
+      memory: 640Mi
 
 prometheusOperator:
   resources:
