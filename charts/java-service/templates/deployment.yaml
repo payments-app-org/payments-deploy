@@ -56,13 +56,16 @@ spec:
               path: /actuator/health/liveness
               port: http
             periodSeconds: 5
+            timeoutSeconds: 3
             failureThreshold: 120
-          # Процесс завис — перезапустить
+          # Процесс завис — перезапустить. Таймаут проб 3 с (по умолчанию 1 с): под нагрузкой ответ может
+          # задержаться, и живой под перезапускался бы
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
               port: http
             periodSeconds: 10
+            timeoutSeconds: 3
             failureThreshold: 3
           # Готов принимать запросы (на месте БД, Redis) — только тогда трафик идёт в под
           readinessProbe:
@@ -70,6 +73,7 @@ spec:
               path: /actuator/health/readiness
               port: http
             periodSeconds: 5
+            timeoutSeconds: 3
             failureThreshold: 3
           # Перед остановкой пауза: Service успевает убрать под из списка, новые запросы в него не идут
           lifecycle:

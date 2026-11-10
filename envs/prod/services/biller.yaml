@@ -4,5 +4,5 @@ image:
   tag: 2b9e963e23c15a93496dfe0cb2fbbddec60596c7
 replicas: 1
 resources:
-  cpu: 100m
+  cpu: 500m
   memory: 640Mi
