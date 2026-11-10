@@ -10,5 +10,3 @@ env:
   GIS_GMP_URL: http://providers:8088
   GATEWAY_URL: http://providers:8088
   PROCESSING_URL: http://processing:8085
-route:
-  paths: [/api/biller]

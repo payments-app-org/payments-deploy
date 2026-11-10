@@ -10,5 +10,3 @@ env:
   BILLER_URL: http://biller:8087
 secretEnv:
   QUOTE_SECRET: QUOTE_SECRET
-route:
-  paths: [/api/pricing]

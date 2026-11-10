@@ -1,0 +1,15 @@
+# API Gateway — единственный вход в API сервисов (весь /api). Шаблон — charts/java-service
+name: gateway
+port: 8080
+image:
+  repository: ghcr.io/payments-app-org/payments-gateway
+# Адреса сервисов — внутри кластера; внутренний API (/api/internal/**) gateway наружу не отдаёт
+env:
+  ACCOUNT_URL: http://account:8081
+  PRICING_URL: http://pricing:8082
+  PAYMENT_URL: http://payment:8083
+  HISTORY_URL: http://history:8086
+  BILLER_URL: http://biller:8087
+  AUTOPAYMENTS_URL: http://autopayments:8089
+route:
+  paths: [/api]

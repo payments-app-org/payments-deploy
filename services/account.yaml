@@ -8,5 +8,3 @@ env:
 secretEnv:
   CARD_HMAC_KEY: CARD_HMAC_KEY
   CARD_ENCRYPTION_KEY: CARD_ENCRYPTION_KEY
-route:
-  paths: [/api/users]

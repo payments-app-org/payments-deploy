@@ -53,7 +53,7 @@ helm template pricing charts/java-service -f services/pricing.yaml -f envs/prod/
 ```
 браузер → localhost:80 → балансировщик k3d → Traefik (Ingress-контроллер)
   по правилам Gateway API (Gateway «external» + маршруты HTTPRoute):
-    payments.localhost/api/<…>  → сервис
+    payments.localhost/api/…    → gateway (payments-gateway) → account, pricing, payment, history, biller, autopayments
     payments.localhost/         → frontend
     argocd.localhost            → Argo CD
     grafana.localhost, prometheus.localhost, jaeger.localhost → наблюдаемость
@@ -61,6 +61,7 @@ helm template pricing charts/java-service -f services/pricing.yaml -f envs/prod/
 ```
 
 - **Traefik** — поды, которые принимают все запросы снаружи. Ставит его Argo CD из чарта (`envs/prod/apps/platform/traefik.yaml`), настройки — `platform/traefik/values.yaml` и `envs/prod/platform/traefik.yaml`. Встроенный в k3s Traefik выключен (`cluster/k3d.yaml`), чтобы версия и настройки были здесь.
+- **payments-gateway** — наш API Gateway (Spring Cloud Gateway): весь `/api` идёт через него, он разводит запросы по сервисам (маршруты — в его `application.yml`). У самих сервисов маршрутов снаружи нет: внутренний API (`/api/internal/**`) снаружи недоступен. Дальше в gateway — проверка токена (Keycloak) и ограничение частоты запросов.
 - **Gateway API** — язык правил входа, на смену Ingress: `Gateway` — сам вход (порт, хосты; его создаёт чарт Traefik), `HTTPRoute` — маршрут сервиса (`charts/*/templates/httproute.yaml`). Типы Gateway API ставятся отдельным приложением `gateway-api`.
 
 ## Наблюдаемость: метрики, логи, трассы
@@ -108,7 +109,7 @@ k3d cluster delete payments               # удалить кластер вме
 
 ## Изменения
 
-- **Настройка сервиса** (переменная, путь входа) — PR в `services/<сервис>.yaml`; число подов, память — в `envs/<окружение>/services/<сервис>.yaml`. Новая переменная, которую читает новый код, — сначала сюда, потом PR в сервис.
+- **Настройка сервиса** (переменная) — PR в `services/<сервис>.yaml`; новый публичный путь — маршрут в `payments-gateway`; число подов, память — в `envs/<окружение>/services/<сервис>.yaml`. Новая переменная, которую читает новый код, — сначала сюда, потом PR в сервис.
 - **Шаблон** — PR в `charts/`: действует на все сервисы сразу. Перед слиянием посмотреть `helm template` нескольких сервисов.
 - **Новый сервис** — строка в `envs/<окружение>/apps/services.yaml` + `services/<сервис>.yaml` + `envs/<окружение>/services/<сервис>.yaml`. Если у сервиса своя схема — `infra/postgres.yaml` (база уже создана — схему добавить руками или пересоздать кластер).
 - **Компонент платформы** — версия чарта в `envs/<окружение>/apps/platform/<компонент>.yaml`, настройки — `platform/<компонент>/values.yaml` и `envs/<окружение>/platform/<компонент>.yaml`.

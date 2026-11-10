@@ -24,6 +24,7 @@ spec:
           - {name: biller, chart: java-service}
           - {name: providers, chart: java-service}
           - {name: autopayments, chart: java-service}
+          - {name: gateway, chart: java-service}
           - {name: frontend, chart: frontend}
   template:
     metadata:
