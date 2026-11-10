@@ -1,0 +1,13 @@
+# Логи в окружении prod: срок хранения, диск, память
+loki:
+  limits_config:
+    retention_period: 72h
+singleBinary:
+  persistence:
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      memory: 384Mi

@@ -1,0 +1,33 @@
+# Трассировка. Чарт и его версия — здесь, настройки — platform/jaeger/values.yaml (общие)
+# и envs/prod/platform/jaeger.yaml (окружение)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jaeger
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  sources:
+    - repoURL: https://jaegertracing.github.io/helm-charts
+      chart: jaeger
+      targetRevision: 4.16.1 # Jaeger 2.22.0
+      helm:
+        valueFiles:
+          - $values/platform/jaeger/values.yaml
+          - $values/envs/prod/platform/jaeger.yaml
+    # Наш репозиторий — только как источник файлов настроек ($values)
+    - repoURL: https://github.com/payments-app-org/payments-deploy.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry:
+      limit: 10
+      backoff: {duration: 10s, factor: 2, maxDuration: 3m}

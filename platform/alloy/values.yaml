@@ -1,0 +1,49 @@
+# Сборщик логов: читает логи всех подов через API Kubernetes и отправляет в Loki с метками namespace, pod,
+# container, app. Чарт grafana/alloy (Promtail закрыт в марте 2026, Alloy — его замена).
+# Один под (Deployment): на одном узле этого хватает. В кластере из многих узлов — DaemonSet, по поду на узел,
+# и чтение файлов /var/log/pods своего узла
+controller:
+  type: deployment
+  replicas: 1
+
+alloy:
+  configMap:
+    content: |
+      // Все поды кластера
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      // Метки, по которым ищем логи в Grafana: {namespace="payments", app="payment"}
+      discovery.relabel "pods" {
+        targets = discovery.kubernetes.pods.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"]
+          target_label  = "app"
+        }
+      }
+
+      // Читать логи через API Kubernetes (как kubectl logs)
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.pods.output
+        forward_to = [loki.write.default.receiver]
+      }
+
+      loki.write "default" {
+        endpoint {
+          url = "http://loki.monitoring:3100/loki/api/v1/push"
+        }
+      }

@@ -1,0 +1,8 @@
+# Сборщик логов в окружении prod: память
+alloy:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 96Mi
+    limits:
+      memory: 256Mi

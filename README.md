@@ -19,7 +19,7 @@ CI до кластера не достаёт: машины GitHub не видя�
 
 ```
 charts/                         наши шаблоны (Helm)
-  java-service/                 общий шаблон Java-сервисов: Deployment, Service, HTTPRoute
+  java-service/                 общий шаблон Java-сервисов: Deployment, Service, HTTPRoute, ServiceMonitor
   frontend/                     nginx со статикой
 services/<сервис>.yaml          сервис во всех окружениях: порт, адреса соседей, секреты, пути входа
 platform/<компонент>/values.yaml  чужие чарты (Traefik, Argo CD…) — общие настройки
@@ -56,11 +56,26 @@ helm template pricing charts/java-service -f services/pricing.yaml -f envs/prod/
     payments.localhost/api/<…>  → сервис
     payments.localhost/         → frontend
     argocd.localhost            → Argo CD
+    grafana.localhost, prometheus.localhost, jaeger.localhost → наблюдаемость
     traefik.localhost           → панель Traefik (какие маршруты он видит)
 ```
 
 - **Traefik** — поды, которые принимают все запросы снаружи. Ставит его Argo CD из чарта (`envs/prod/apps/platform/traefik.yaml`), настройки — `platform/traefik/values.yaml` и `envs/prod/platform/traefik.yaml`. Встроенный в k3s Traefik выключен (`cluster/k3d.yaml`), чтобы версия и настройки были здесь.
 - **Gateway API** — язык правил входа, на смену Ingress: `Gateway` — сам вход (порт, хосты; его создаёт чарт Traefik), `HTTPRoute` — маршрут сервиса (`charts/*/templates/httproute.yaml`). Типы Gateway API ставятся отдельным приложением `gateway-api`.
+
+## Наблюдаемость: метрики, логи, трассы
+
+Всё в namespace `monitoring`, ставит Argo CD из чартов производителей (`envs/prod/apps/platform/`), настройки — `platform/<компонент>/values.yaml` и `envs/prod/platform/<компонент>.yaml`.
+
+| Что | Компонент | Где смотреть |
+|---|---|---|
+| Метрики | Prometheus собирает раз в 30 с с `/actuator/prometheus` сервисов (объект ServiceMonitor — `metrics.enabled` в настройках сервиса), узлов и объектов Kubernetes; хранит 2 дня | http://grafana.localhost (графики: папка payments-app — JVM и Spring Boot; Kubernetes — поды, память, CPU), http://prometheus.localhost |
+| Логи | Alloy читает логи всех подов → Loki хранит 3 дня | Grafana → Explore → Loki: `{namespace="payments", app="payment"}` |
+| Трассы | сервисы отправляют по OTLP → Jaeger (в памяти, последние 20 000) | http://jaeger.localhost или Grafana → Explore → Jaeger |
+
+Grafana: логин `admin`, пароль — `kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d` (секрет создаёт `scripts/secrets.sh`). Из строки лога с `traceId` — переход к трассе, из трассы — к логам этого запроса.
+
+**Тревоги пока не настроены**: Alertmanager и правила тревог выключены (`alertmanager.enabled`, `defaultRules.create` в `platform/kube-prometheus-stack/values.yaml`) — отдельная задача (Alertmanager → Telegram).
 
 ## Argo CD: что где настраивается
 
@@ -86,6 +101,7 @@ k3d cluster delete payments               # удалить кластер вме
 - Приложение — http://payments.localhost.
 - Argo CD — http://argocd.localhost, логин `admin`, пароль: `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d`.
 - Панель Traefik — http://traefik.localhost/dashboard/.
+- Grafana — http://grafana.localhost, Prometheus — http://prometheus.localhost, Jaeger — http://jaeger.localhost.
 - Swagger, внутренние API, база данных — через проброс порта:
   - `kubectl -n payments port-forward svc/pricing 8082`, затем http://localhost:8082/swagger-ui.html;
   - `kubectl -n payments port-forward svc/postgres 5433:5432`.

@@ -1,0 +1,18 @@
+{{- if .Values.metrics.enabled }}
+# «Prometheus, забирай метрики этого сервиса»: раз в interval — GET /actuator/prometheus у каждого пода за Service.
+# Объект читает Prometheus Operator (platform/kube-prometheus-stack) и сам добавляет цель в настройки Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    {{- include "java-service.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "java-service.selector" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: {{ .Values.metrics.path }}
+      interval: {{ .Values.metrics.interval }}
+{{- end }}
