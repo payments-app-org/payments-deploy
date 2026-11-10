@@ -1,4 +1,4 @@
 # Фронтенд: nginx со статикой. Шаблон — charts/frontend
+name: frontend
 image:
   repository: ghcr.io/payments-app-org/payments-frontend
-  tag: f91ab7b087871539edf5852855c7c9c1970b395e

@@ -1,0 +1,53 @@
+# Сервисы окружения prod: ApplicationSet создаёт по приложению Argo CD на каждый элемент списка.
+# Приложение = шаблон charts/<chart> + настройки в три слоя (каждый следующий переопределяет предыдущий):
+#   services/<name>.yaml            общее для сервиса во всех окружениях: порт, адреса соседей, секреты, пути входа
+#   envs/prod/env.yaml              общее для окружения: вход (Gateway) и хосты
+#   envs/prod/services/<name>.yaml  этот сервис в этом окружении: версия образа, число подов, память
+# Новый сервис — строка в списке + два файла настроек
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: services
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - {name: account, chart: java-service}
+          - {name: pricing, chart: java-service}
+          - {name: payment, chart: java-service}
+          - {name: fraud, chart: java-service}
+          - {name: processing, chart: java-service}
+          - {name: history, chart: java-service}
+          - {name: biller, chart: java-service}
+          - {name: providers, chart: java-service}
+          - {name: autopayments, chart: java-service}
+          - {name: frontend, chart: frontend}
+  template:
+    metadata:
+      name: "{{.name}}"
+      finalizers: [resources-finalizer.argocd.argoproj.io]
+    spec:
+      project: payments
+      source:
+        repoURL: https://github.com/payments-app-org/payments-deploy.git
+        targetRevision: main
+        path: "charts/{{.chart}}"
+        helm:
+          valueFiles:
+            - "../../services/{{.name}}.yaml"
+            - ../../envs/prod/env.yaml
+            - "../../envs/prod/services/{{.name}}.yaml"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: payments
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions: [CreateNamespace=true]
+        retry:
+          limit: 10
+          backoff: {duration: 10s, factor: 2, maxDuration: 3m}

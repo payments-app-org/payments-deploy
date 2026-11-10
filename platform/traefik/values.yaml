@@ -1,0 +1,30 @@
+# Traefik — Ingress-контроллер: поды, которые принимают все запросы снаружи и разводят их по сервисам.
+# Правила входа описаны на языке Gateway API (Gateway + HTTPRoute). Чарт traefik/traefik,
+# его версия — envs/<окружение>/apps/platform/traefik.yaml. Число подов и память — envs/<окружение>/platform/traefik.yaml
+
+providers:
+  # Читать правила Gateway API
+  kubernetesGateway:
+    enabled: true
+  # Ingress не используем: все входы — через Gateway API
+  kubernetesIngress:
+    enabled: false
+ingressClass:
+  enabled: false
+
+# Gateway «external» — сам вход: порт web (8000 в поде; снаружи 80 — Service Traefik).
+# Маршруты (HTTPRoute) подключаются к нему из любого namespace: payments, argocd, monitoring
+gateway:
+  name: external
+  listeners:
+    web:
+      port: 8000
+      protocol: HTTP
+      namespacePolicy:
+        from: All
+
+# Панель Traefik: какие маршруты и сервисы он видит. Хост — в настройках окружения
+ingressRoute:
+  dashboard:
+    enabled: true
+    entryPoints: [web]

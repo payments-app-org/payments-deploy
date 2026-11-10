@@ -1,0 +1,33 @@
+# Traefik — вход в кластер. Чарт и его версия — здесь, настройки — platform/traefik/values.yaml
+# (общие) и envs/prod/platform/traefik.yaml (окружение)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  sources:
+    - repoURL: https://traefik.github.io/charts
+      chart: traefik
+      targetRevision: 42.3.1 # Traefik v3.7.17; Gateway API v1.6.1
+      helm:
+        valueFiles:
+          - $values/platform/traefik/values.yaml
+          - $values/envs/prod/platform/traefik.yaml
+    # Наш репозиторий — только как источник файлов настроек ($values)
+    - repoURL: https://github.com/payments-app-org/payments-deploy.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: traefik
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry:
+      limit: 10
+      backoff: {duration: 10s, factor: 2, maxDuration: 3m}

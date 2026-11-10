@@ -3,10 +3,14 @@ port: 8080
 replicas: 1
 image:
   repository: ""
-  # SHA коммита. Обновляет CI после слияния PR в main фронтенда
+  # SHA коммита — в envs/<окружение>/services/frontend.yaml (записывает CI по кнопке выкатки)
   tag: ""
 resources:
   cpu: 20m
   memory: 32Mi
-ingress:
-  host: payments.localhost
+# Вход: Gateway и хосты задаёт окружение (envs/<окружение>/env.yaml)
+route:
+  gateway:
+    name: ""
+    namespace: ""
+  hostnames: []

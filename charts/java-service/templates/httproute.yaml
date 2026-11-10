@@ -1,0 +1,26 @@
+{{- if .Values.route.paths }}
+# Вход снаружи (Gateway API): запросы на хосты окружения с этими путями — в Service сервиса.
+# Сам вход (Gateway, его выполняет Traefik) и хосты задаёт окружение: envs/<окружение>/env.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    {{- include "java-service.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ required "route.gateway.name обязателен" .Values.route.gateway.name }}
+      namespace: {{ required "route.gateway.namespace обязателен" .Values.route.gateway.namespace }}
+  hostnames:
+    {{- toYaml (required "route.hostnames обязателен" .Values.route.hostnames) | nindent 4 }}
+  rules:
+    - matches:
+        {{- range .Values.route.paths }}
+        - path:
+            type: PathPrefix
+            value: {{ . }}
+        {{- end }}
+      backendRefs:
+        - name: {{ .Values.name }}
+          port: {{ .Values.port }}
+{{- end }}

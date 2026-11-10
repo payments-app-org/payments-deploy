@@ -1,0 +1,32 @@
+# Argo CD управляет сам собой: первый раз его ставит scripts/cluster-up.sh, дальше изменения настроек
+# (platform/argocd/values.yaml, envs/prod/platform/argocd.yaml) и версии чарта применяет он сам.
+# Без финализатора: удаление этого приложения не должно удалять сам Argo CD
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  project: platform
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-cd
+      targetRevision: 10.13.1 # Argo CD v3.6.1; та же версия — в scripts/cluster-up.sh
+      helm:
+        valueFiles:
+          - $values/platform/argocd/values.yaml
+          - $values/envs/prod/platform/argocd.yaml
+    - repoURL: https://github.com/payments-app-org/payments-deploy.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: [ServerSideApply=true]
+    retry:
+      limit: 10
+      backoff: {duration: 10s, factor: 2, maxDuration: 3m}

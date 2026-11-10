@@ -1,5 +1,5 @@
-# Проверка описания окружения до слияния: шаблоны собираются с настройками каждого сервиса,
-# YAML читается, скрипты без типичных ошибок. Helm, yq и shellcheck уже есть на машинах GitHub.
+# Проверка описания окружений до слияния — scripts/check.sh: шаблоны сервисов с настройками каждого окружения,
+# чарты платформы с нашими настройками, YAML, shellcheck. Helm, yq и shellcheck уже есть на машинах GitHub.
 name: CI
 
 on:
@@ -15,17 +15,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Render charts
-        run: |
-          for values in services/*.yaml; do
-            service=$(basename "$values" .yaml)
-            chart=$(yq '.spec.source.path' "argocd/apps/$service.yaml")
-            echo "::group::$service ($chart)"
-            helm lint "$chart" -f "$values"
-            helm template "$service" "$chart" -f "$values" > /dev/null
-            echo "::endgroup::"
-          done
-      - name: YAML
-        run: for f in infra/*.yaml argocd/*.yaml argocd/apps/*.yaml cluster/*.yaml; do yq 'true' "$f" > /dev/null; done
-      - name: shellcheck
-        run: shellcheck scripts/*.sh
+      - run: scripts/check.sh

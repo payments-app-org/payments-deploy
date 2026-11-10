@@ -1,5 +1,5 @@
 # Локальный кластер: k3s (облегчённый Kubernetes) в Docker. Один узел — на ноутбуке больше не нужно.
-# Порт 80 ноутбука → вход в кластер (Traefik): http://payments.localhost, http://argocd.localhost
+# Порт 80 ноутбука → балансировщик k3d → Traefik в кластере: http://payments.localhost, http://argocd.localhost
 apiVersion: k3d.io/v1alpha5
 kind: Simple
 metadata:
@@ -9,3 +9,10 @@ agents: 0
 ports:
   - port: 80:80
     nodeFilters: [loadbalancer]
+options:
+  k3s:
+    extraArgs:
+      # Встроенный в k3s Traefik не ставим: свой Traefik ставит Argo CD из git (platform/traefik),
+      # так его версия и настройки — в одном месте с остальной платформой
+      - arg: --disable=traefik
+        nodeFilters: [server:*]
