@@ -1,7 +1,7 @@
 # payment в окружении prod: версия образа, число подов, память
 image:
   # SHA коммита сервиса. Записывает CI (scripts/set-image.sh) по кнопке выкатки
-  tag: 870c9ffde5aa1246b9881f6ce1d8dbfe57f91671
+  tag: 934a0611b2cc3ccbb69a881e35a2b8be97c281aa
 replicas: 1
 resources:
   cpu: 100m
