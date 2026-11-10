@@ -13,5 +13,3 @@ env:
   PROCESSING_URL: http://processing:8085
 secretEnv:
   QUOTE_SECRET: QUOTE_SECRET
-route:
-  paths: [/api/payments]

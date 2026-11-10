@@ -6,5 +6,3 @@ image:
 env:
   DB_URL: jdbc:postgresql://postgres:5432/payments
   KAFKA_BOOTSTRAP: kafka:9092
-route:
-  paths: [/api/history]
