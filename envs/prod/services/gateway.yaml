@@ -1,7 +1,7 @@
 # gateway в окружении prod: версия образа, число подов, память
 image:
   # SHA коммита сервиса. Записывает CI (scripts/set-image.sh) по кнопке выкатки
-  tag: 48b4fae2e95f312aef13072a5ccee6dfb9d39385
+  tag: 27d8472ef725593ed94640b1fc873b8865c707f6
 replicas: 1
 resources:
   cpu: 100m
