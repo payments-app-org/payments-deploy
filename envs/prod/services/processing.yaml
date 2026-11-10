@@ -1,7 +1,7 @@
 # processing в окружении prod: версия образа, число подов, память
 image:
   # SHA коммита сервиса. Записывает CI (scripts/set-image.sh) по кнопке выкатки
-  tag: c42e71970720493cda88a46edc75b806b48331d2
+  tag: 4e7bde69558c726fc3ab07945145c99ff784345b
 replicas: 1
 resources:
   cpu: 50m
