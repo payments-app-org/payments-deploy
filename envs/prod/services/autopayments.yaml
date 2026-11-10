@@ -1,7 +1,7 @@
 # autopayments в окружении prod: версия образа, число подов, память
 image:
   # SHA коммита сервиса. Записывает CI (scripts/set-image.sh) по кнопке выкатки
-  tag: de9bef1f13cc755a21c408aa3c1de84a7b9114f5
+  tag: 32258c277139a50b656020bd9909f3d36394e2d2
 replicas: 1
 resources:
   cpu: 100m
