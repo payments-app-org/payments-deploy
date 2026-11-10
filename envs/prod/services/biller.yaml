@@ -1,7 +1,7 @@
 # biller в окружении prod: версия образа, число подов, память
 image:
   # SHA коммита сервиса. Записывает CI (scripts/set-image.sh) по кнопке выкатки
-  tag: 6e6f5821f4d461aa6a19bc98900ff4b7307565c7
+  tag: 4c8e1f2c546d6825dde56309a1427f75f23e6f9e
 replicas: 1
 resources:
   cpu: 100m
