@@ -25,12 +25,14 @@ grafana:
   route:
     main:
       hostnames: [grafana.localhost]
+  persistence:
+    size: 1Gi
   resources:
     requests:
       cpu: 50m
       memory: 192Mi
     limits:
-      memory: 320Mi
+      memory: 384Mi
 
 prometheusOperator:
   resources:

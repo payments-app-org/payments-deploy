@@ -11,7 +11,9 @@ spec:
   sources:
     - repoURL: https://prometheus-community.github.io/helm-charts
       chart: kube-prometheus-stack
-      targetRevision: 93.1.1 # Prometheus Operator v0.95.1, Grafana 14.4.0
+      # 92.x, а не 93.x: образ Prometheus Operator v0.95.1 (чарт 93) выпущен только для amd64 — на Mac (arm64)
+      # не запускается. Переходить на 93.x — когда выйдет исправленный образ
+      targetRevision: 92.22.0 # Prometheus Operator v0.94.2
       helm:
         valueFiles:
           - $values/platform/kube-prometheus-stack/values.yaml
