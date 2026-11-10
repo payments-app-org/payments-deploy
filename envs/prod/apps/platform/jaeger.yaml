@@ -11,7 +11,9 @@ spec:
   sources:
     - repoURL: https://jaegertracing.github.io/helm-charts
       chart: jaeger
-      targetRevision: 4.16.1 # Jaeger 2.22.0
+      # 4.13.x (Jaeger 2.20), а не новее: в Jaeger 2.21 убрали старый адрес /api/services, а источник Jaeger
+      # в Grafana 13.3 проверяет и ищет сервисы по нему. Обновлять — когда Grafana перейдёт на /api/v3
+      targetRevision: 4.13.1 # Jaeger 2.20.0
       helm:
         valueFiles:
           - $values/platform/jaeger/values.yaml
