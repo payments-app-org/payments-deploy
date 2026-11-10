@@ -48,13 +48,15 @@ spec:
                   name: {{ $.Values.secretName }}
                   key: {{ $key }}
             {{- end }}
-          # Старт JVM и миграции Liquibase: пока проба не прошла, liveness не проверяется (до 5 минут)
+          # Старт JVM и миграции Liquibase: пока проба не прошла, liveness не проверяется (до 10 минут).
+          # С запасом: когда стартуют все сервисы разом (перезапуск Docker, смена env.yaml), каждому достаётся
+          # доля процессора, и старт, который обычно занимает 30–60 с, растягивается на минуты
           startupProbe:
             httpGet:
               path: /actuator/health/liveness
               port: http
             periodSeconds: 5
-            failureThreshold: 60
+            failureThreshold: 120
           # Процесс завис — перезапустить
           livenessProbe:
             httpGet:
