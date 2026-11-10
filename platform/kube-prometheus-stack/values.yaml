@@ -54,6 +54,18 @@ grafana:
   # Тестовый под Helm (helm test) не нужен: состояние проверяет Argo CD
   testFramework:
     enabled: false
+  # Первый запуск Grafana — несколько минут (готовит свою базу): пока startup-проба не прошла, liveness не
+  # проверяется и не перезапускает её (как у наших Java-сервисов, до 10 минут)
+  startupProbe:
+    httpGet:
+      path: /api/health
+      port: grafana
+    periodSeconds: 10
+    failureThreshold: 60
+  # База Grafana (пользователи, настройки) — на диске: иначе после каждого перезапуска подготовка заново.
+  # Размер — в настройках окружения
+  persistence:
+    enabled: true
   route:
     main:
       enabled: true
