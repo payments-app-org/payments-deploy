@@ -1,0 +1,43 @@
+# Проекты Argo CD — границы: откуда приложению можно брать описание и куда ставить.
+# Создаются первыми (sync-wave -1), приложения ссылаются на них
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  description: Платформа — вход, Argo CD, мониторинг, логи, трассировка
+  sourceRepos:
+    - https://github.com/payments-app-org/payments-deploy.git
+    - https://github.com/kubernetes-sigs/gateway-api.git
+    - https://traefik.github.io/charts
+    - https://argoproj.github.io/argo-helm
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: "*"
+  # Платформа ставит и общие для кластера объекты: CRD, роли
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: payments
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  description: Приложение payments-app — сервисы, фронтенд, базы и брокер
+  # Только из этого репозитория и только в namespace payments
+  sourceRepos:
+    - https://github.com/payments-app-org/payments-deploy.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: payments
+  # Из общих для кластера объектов — только сам namespace
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace

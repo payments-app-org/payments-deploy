@@ -1,0 +1,24 @@
+# Argo CD (чарт argo/argo-cd). Ставит его scripts/cluster-up.sh, дальше Argo CD обновляет себя сам из git
+# (envs/<окружение>/apps/platform/argocd.yaml). Хост и память — envs/<окружение>/platform/argocd.yaml
+configs:
+  params:
+    # HTTPS снаружи нет — сервер отвечает по HTTP, перед ним Traefik
+    server.insecure: true
+  cm:
+    # Как часто проверять git: по умолчанию 3 минуты, нам быстрее — 1 минута
+    timeout.reconciliation: 60s
+server:
+  # Вход — маршрут Gateway API к Gateway «external» (Traefik)
+  httproute:
+    enabled: true
+    parentRefs:
+      - name: external
+        namespace: traefik
+# Не нужны: вход через внешние системы (dex), уведомления
+dex:
+  enabled: false
+notifications:
+  enabled: false
+# Генератор приложений: сервисы окружения описаны одним ApplicationSet (envs/<окружение>/apps/services.yaml)
+applicationSet:
+  replicas: 1

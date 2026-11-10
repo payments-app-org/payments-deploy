@@ -8,7 +8,7 @@ replicas: 1
 
 image:
   repository: ""
-  # SHA коммита. Обновляет CI после слияния PR в main сервиса
+  # SHA коммита — в envs/<окружение>/services/<сервис>.yaml (записывает CI по кнопке выкатки)
   tag: ""
 
 # Переменные окружения: адреса соседей, баз, брокера
@@ -24,7 +24,11 @@ resources:
   memory: 576Mi
 jvmOptions: -XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError
 
-# Вход снаружи: какие пути на http://payments.localhost ведут в этот сервис
-ingress:
-  host: payments.localhost
+# Вход снаружи (Gateway API): какие пути ведут в этот сервис (services/<сервис>.yaml).
+# Через какой вход (Gateway) и на каких хостах — задаёт окружение: envs/<окружение>/env.yaml
+route:
+  gateway:
+    name: ""
+    namespace: ""
+  hostnames: []
   paths: []

@@ -1,0 +1,8 @@
+# providers в окружении prod: версия образа, число подов, память
+image:
+  # SHA коммита сервиса. Записывает CI (scripts/set-image.sh) по кнопке выкатки
+  tag: 3c352a4e342b449e346c8f307902eba0ae784c48
+replicas: 1
+resources:
+  cpu: 50m
+  memory: 448Mi

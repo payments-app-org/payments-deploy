@@ -1,0 +1,23 @@
+# «Главное» приложение окружения prod (app of apps): создаёт всё, что описано в envs/prod/apps.
+# Кладёт в кластер scripts/cluster-up.sh, дальше Argo CD берёт всё из git.
+# Другое окружение = копия папки envs/prod, а root его кластера смотрит на эту копию
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/payments-app-org/payments-deploy.git
+    targetRevision: main
+    path: envs/prod/apps
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

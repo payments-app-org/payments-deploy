@@ -1,0 +1,12 @@
+# Traefik в окружении prod
+deployment:
+  replicas: 1
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+ingressRoute:
+  dashboard:
+    matchRule: Host(`traefik.localhost`)

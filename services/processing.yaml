@@ -3,10 +3,6 @@ name: processing
 port: 8085
 image:
   repository: ghcr.io/payments-app-org/payments-processing
-  tag: 5df31b934c701173b118f0ac9df148802e9ba967
 env:
   REDIS_HOST: redis
   PAYMENT_URL: http://payment:8083
-resources:
-  cpu: 50m
-  memory: 448Mi

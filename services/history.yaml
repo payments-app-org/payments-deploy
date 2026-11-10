@@ -3,9 +3,8 @@ name: history
 port: 8086
 image:
   repository: ghcr.io/payments-app-org/payments-history
-  tag: 8ead4669eab26b213a933932e878eb0c14648896
 env:
   DB_URL: jdbc:postgresql://postgres:5432/payments
   KAFKA_BOOTSTRAP: kafka:9092
-ingress:
+route:
   paths: [/api/history]

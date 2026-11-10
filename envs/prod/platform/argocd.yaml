@@ -1,0 +1,4 @@
+# Argo CD в окружении prod
+server:
+  httproute:
+    hostnames: [argocd.localhost]

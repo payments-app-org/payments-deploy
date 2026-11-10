@@ -3,7 +3,3 @@ name: fraud
 port: 8084
 image:
   repository: ghcr.io/payments-app-org/payments-fraud
-  tag: bf83461c49970c761bc41e205197fd024a43b37b
-resources:
-  cpu: 50m
-  memory: 448Mi
