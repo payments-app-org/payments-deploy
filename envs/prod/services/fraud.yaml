@@ -1,7 +1,7 @@
 # fraud в окружении prod: версия образа, число подов, память
 image:
   # SHA коммита сервиса. Записывает CI (scripts/set-image.sh) по кнопке выкатки
-  tag: 2aef4275518b5cb0379ec33d738c52345bf9b571
+  tag: cac75a920c41469b8bf3c60cd7ff9c7531b57d78
 replicas: 1
 resources:
   cpu: 50m
