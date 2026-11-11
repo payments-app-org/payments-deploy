@@ -1,7 +1,7 @@
 # frontend в окружении prod: версия образа, число подов, память
 image:
   # SHA коммита сервиса. Записывает CI (scripts/set-image.sh) по кнопке выкатки
-  tag: 4810419a349473cb9a57a035f0492782bf35ef73
+  tag: 60f5d3721bb32ff0011fffd24d436896bbb5cf7f
 replicas: 1
 resources:
   cpu: 20m
