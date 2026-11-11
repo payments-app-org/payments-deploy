@@ -1094,12 +1094,21 @@ data:
       {
        "type": "timeseries",
        "title": "Входы и ошибки входа",
-       "description": "login_error растёт — неверные пароли или перебор (после 5 ошибок Keycloak блокирует)",
+       "description": "Ошибки входа растут — неверные пароли или перебор (после 5 ошибок Keycloak блокирует)",
        "targets": [
         {
          "refId": "A",
-         "expr": "sum by (event) (increase(keycloak_user_events_total{event=~\"login|login_error|logout\"}[5m]))",
+         "expr": "sum by (event) (increase(keycloak_user_events_total{event=~\"login|logout\",error=\"\"}[5m]))",
          "legendFormat": "{{event}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        },
+        {
+         "refId": "B",
+         "expr": "sum by (error) (increase(keycloak_user_events_total{event=\"login\",error!=\"\"}[5m]))",
+         "legendFormat": "ошибка: {{error}}",
          "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
@@ -1148,13 +1157,22 @@ data:
       },
       {
        "type": "timeseries",
-       "title": "Обновления токенов",
-       "description": "refresh_token_error — повтор старого refresh-токена или сессия закрыта",
+       "title": "Выдача и обновление токенов",
+       "description": "Ошибка refresh_token — повтор старого refresh-токена (ротация) или сессия закрыта",
        "targets": [
         {
          "refId": "A",
-         "expr": "sum by (event) (increase(keycloak_user_events_total{event=~\"refresh_token|refresh_token_error|code_to_token\"}[5m]))",
+         "expr": "sum by (event) (increase(keycloak_user_events_total{event=~\"code_to_token|refresh_token\",error=\"\"}[5m]))",
          "legendFormat": "{{event}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        },
+        {
+         "refId": "B",
+         "expr": "sum by (event, error) (increase(keycloak_user_events_total{event=~\"code_to_token|refresh_token\",error!=\"\"}[5m]))",
+         "legendFormat": "{{event}} ошибка: {{error}}",
          "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
