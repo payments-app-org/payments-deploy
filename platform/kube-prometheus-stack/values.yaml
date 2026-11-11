@@ -18,6 +18,17 @@ kubeEtcd:
   enabled: false
 kubeProxy:
   enabled: false
+# API-сервер отдельно не собираем: его метрики (33 тыс. рядов) нужны тем, кто чинит сам Kubernetes, не нам
+kubeApiServer:
+  enabled: false
+kubelet:
+  serviceMonitor:
+    # k3s отдаёт с /metrics kubelet ещё и метрики API-сервера, etcd, планировщика — ещё 40 тыс. рядов.
+    # Оставляем только метрики kubelet и контейнеров (процессор, память, сеть подов)
+    metricRelabelings:
+      - sourceLabels: [__name__]
+        regex: (apiserver|etcd|workqueue|scheduler|apiextensions|aggregator|authentication|authorization|field_validation|flowcontrol|watch_cache|rest_client)_.*
+        action: drop
 
 prometheusOperator:
   # Проверка правил тревог при применении: правил пока нет, а задачи выпуска сертификатов для неё
