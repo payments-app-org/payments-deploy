@@ -1,0 +1,54 @@
+# Сервисная сетка Istio в режиме ambient: mTLS между подами и правила «кто кому может звонить».
+# Четыре чарта одной версии: base (типы объектов Istio — CRD), istiod, istio-cni, ztunnel. Настройки —
+# platform/istio/*.yaml. Какие namespace в сетке и правила доступа — приложение mesh (platform/mesh)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://istio-release.storage.googleapis.com/charts
+      chart: base
+      targetRevision: 1.30.8
+    - repoURL: https://istio-release.storage.googleapis.com/charts
+      chart: istiod
+      targetRevision: 1.30.8
+      helm:
+        valueFiles: [$values/platform/istio/istiod.yaml]
+    - repoURL: https://istio-release.storage.googleapis.com/charts
+      chart: cni
+      targetRevision: 1.30.8
+      helm:
+        valueFiles: [$values/platform/istio/cni.yaml]
+    - repoURL: https://istio-release.storage.googleapis.com/charts
+      chart: ztunnel
+      targetRevision: 1.30.8
+      helm:
+        valueFiles: [$values/platform/istio/ztunnel.yaml]
+    - repoURL: https://github.com/payments-app-org/payments-deploy.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  # istiod сам дописывает в свои webhook сертификат (caBundle) и failurePolicy — это не расхождение с git
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jqPathExpressions: [.webhooks[]?.clientConfig.caBundle, .webhooks[]?.failurePolicy]
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jqPathExpressions: [.webhooks[]?.clientConfig.caBundle]
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: [CreateNamespace=true, ServerSideApply=true, RespectIgnoreDifferences=true]
+    retry:
+      limit: 10
+      backoff: {duration: 10s, factor: 2, maxDuration: 3m}

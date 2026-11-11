@@ -1,0 +1,11 @@
+# istiod — управляющая часть Istio: выпускает сертификаты рабочим нагрузкам (SPIFFE-идентичность по сервисному
+# аккаунту: cluster.local/ns/<namespace>/sa/<аккаунт>) и раздаёт ztunnel правила (PeerAuthentication,
+# AuthorizationPolicy). Сам трафик через него не идёт.
+# Режим ambient — без sidecar-контейнера Envoy в каждом поде: шифрует трафик ztunnel, один на узел (L4: mTLS,
+# идентичность, правила «кто кому»). Правила уровня HTTP (пути, методы, JWT) в ambient требуют waypoint-прокси —
+# на ноутбуке не ставим, проверку пользователя делает payments-gateway
+profile: ambient
+autoscaleEnabled: false
+resources:
+  requests: {cpu: 50m, memory: 128Mi}
+  limits: {memory: 384Mi}

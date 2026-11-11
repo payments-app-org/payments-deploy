@@ -1,0 +1,44 @@
+# Какие namespace в сервисной сетке: метка istio.io/dataplane-mode=ambient — трафик их подов идёт через ztunnel
+# (mTLS и проверка правил). Поды подключаются на ходу, без перезапуска.
+#   payments  — сервисы, Postgres, Kafka, Redis
+#   traefik   — вход: от него к gateway и фронтенду тоже mTLS
+#   monitoring — Prometheus собирает метрики сервисов, сервисы шлют трассы в Jaeger
+#   keycloak  — gateway берёт у него ключи, он ходит в Postgres
+# Вне сетки: kube-system, argocd, istio-system, vault, external-secrets — им нужен только API Kubernetes и друг друга.
+# Namespace создают и другие приложения (CreateNamespace); здесь — только метки. Prune/Delete=false: удаление
+# этого приложения не должно удалять namespace со всем содержимым
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+  labels:
+    istio.io/dataplane-mode: ambient
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: traefik
+  labels:
+    istio.io/dataplane-mode: ambient
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    istio.io/dataplane-mode: ambient
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: keycloak
+  labels:
+    istio.io/dataplane-mode: ambient
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
