@@ -23,6 +23,8 @@ spec:
         app.kubernetes.io/name: {{ .Values.name }}
         app.kubernetes.io/part-of: payments-app
     spec:
+      # Идентичность в сервисной сетке (templates/serviceaccount.yaml)
+      serviceAccountName: {{ .Values.name }}
       enableServiceLinks: false
       securityContext:
         runAsNonRoot: true

@@ -1,0 +1,23 @@
+# Что в сетке Istio и кто кому может звонить: метки namespace, mTLS STRICT, AuthorizationPolicy, NetworkPolicy.
+# Обычные манифесты — platform/mesh. После Istio (его типы объектов нужны правилам)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mesh
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  source:
+    repoURL: https://github.com/payments-app-org/payments-deploy.git
+    targetRevision: main
+    path: platform/mesh
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff: {duration: 10s, factor: 2, maxDuration: 3m}

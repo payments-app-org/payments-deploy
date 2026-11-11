@@ -24,6 +24,7 @@ spec:
         # Поменялся realm — перезапуск (импорт новых realm при старте)
         checksum/realm: {{ include (print $.Template.BasePath "/realm.yaml") . | sha256sum }}
     spec:
+      serviceAccountName: keycloak
       enableServiceLinks: false
       securityContext:
         runAsNonRoot: true

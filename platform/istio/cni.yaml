@@ -1,0 +1,9 @@
+# istio-cni — на каждом узле: при запуске пода в namespace с меткой istio.io/dataplane-mode=ambient перенаправляет
+# его трафик в ztunnel (правила внутри сетевого пространства пода). Поды не перезапускаются — подключаются на ходу.
+# platform: k3d — у k3s свои пути к настройкам CNI
+profile: ambient
+global:
+  platform: k3d
+resources:
+  requests: {cpu: 10m, memory: 32Mi}
+  limits: {memory: 128Mi}

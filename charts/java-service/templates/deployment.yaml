@@ -24,6 +24,8 @@ spec:
     spec:
       # Без переменных вида REDIS_PORT=tcp://10.43.0.5:6379, которые Kubernetes иначе добавляет
       # для каждого Service: они перебивают настройки приложения с теми же именами
+      # Идентичность в сервисной сетке (templates/serviceaccount.yaml)
+      serviceAccountName: {{ .Values.name }}
       enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
