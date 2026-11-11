@@ -1,0 +1,48 @@
+# External Secrets Operator (чарт external-secrets/external-secrets, версия — envs/<окружение>/apps/platform/
+# external-secrets.yaml): переносит секреты из Vault в обычные Secret Kubernetes и обновляет их, когда в Vault
+# поменяли значение. Приложения о Vault не знают — читают Secret, как раньше.
+#   ClusterSecretStore «vault» (ниже) — откуда брать: адрес Vault и как входить
+#   ExternalSecret — что взять и какой Secret создать; лежат рядом с теми, кто секрет читает:
+#     infra/secrets.yaml (сервисы), platform/keycloak, platform/kube-prometheus-stack (Grafana, Alertmanager)
+
+installCRDs: true
+
+# Проверка объектов при применении (webhook) и выпуск сертификатов для неё — ещё два пода. Объекты проверяет
+# Argo CD и сам оператор при обработке; на ноутбуке экономим память
+webhook:
+  create: false
+certController:
+  create: false
+
+resources:
+  requests: {cpu: 10m, memory: 48Mi}
+  limits: {memory: 128Mi}
+
+# Метрики оператора (синхронизация секретов, ошибки) — для Prometheus
+serviceMonitor:
+  enabled: true
+
+extraObjects:
+  # Откуда брать секреты: Vault, движок KV v2 по пути secret/. Вход — по токену сервисного аккаунта оператора:
+  # Vault спрашивает Kubernetes, чей это токен, и выдаёт права роли external-secrets (только чтение secret/*).
+  # Роль и права создаёт scripts/vault-init.sh
+  - apiVersion: external-secrets.io/v1
+    kind: ClusterSecretStore
+    metadata:
+      name: vault
+      annotations:
+        # Тип ClusterSecretStore появляется вместе с этим же чартом — проверять заранее нечего
+        argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    spec:
+      provider:
+        vault:
+          server: http://vault.vault:8200
+          path: secret
+          version: v2
+          auth:
+            kubernetes:
+              mountPath: kubernetes
+              role: external-secrets
+              serviceAccountRef:
+                name: external-secrets
+                namespace: external-secrets

@@ -1,0 +1,40 @@
+# Хранилище секретов. Чарт и его версия — здесь, настройки — platform/vault/values.yaml (общие)
+# и envs/prod/platform/vault.yaml (окружение). Ставится раньше остальных (sync-wave -1): из него берут секреты
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vault
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://helm.releases.hashicorp.com
+      chart: vault
+      targetRevision: 0.34.1 # Vault 2.0.4
+      helm:
+        valueFiles:
+          - $values/platform/vault/values.yaml
+          - $values/envs/prod/platform/vault.yaml
+    - repoURL: https://github.com/payments-app-org/payments-deploy.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vault
+  # Пока Vault не распечатан, его под не готов (readiness) — это нормально до scripts/vault-init.sh
+  ignoreDifferences:
+    # Чарт описывает webhook инжектора даже выключенным — Kubernetes дописывает в него поля
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jsonPointers: [/webhooks]
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+    retry:
+      limit: 10
+      backoff: {duration: 10s, factor: 2, maxDuration: 3m}

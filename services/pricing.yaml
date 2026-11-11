@@ -9,4 +9,5 @@ env:
   ACCOUNT_URL: http://account:8081
   BILLER_URL: http://biller:8087
 secretEnv:
+  DB_PASSWORD: DB_PASSWORD
   QUOTE_SECRET: QUOTE_SECRET

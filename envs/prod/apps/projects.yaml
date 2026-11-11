@@ -8,7 +8,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 spec:
-  description: Платформа — вход, Argo CD, мониторинг, логи, трассировка
+  description: Платформа — вход, Argo CD, секреты, мониторинг, логи, трассировка
   sourceRepos:
     - https://github.com/payments-app-org/payments-deploy.git
     - https://github.com/kubernetes-sigs/gateway-api.git
@@ -17,6 +17,8 @@ spec:
     - https://prometheus-community.github.io/helm-charts
     - https://grafana.github.io/helm-charts
     - https://jaegertracing.github.io/helm-charts
+    - https://helm.releases.hashicorp.com
+    - https://charts.external-secrets.io
   destinations:
     - server: https://kubernetes.default.svc
       namespace: "*"

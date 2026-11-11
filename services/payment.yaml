@@ -12,4 +12,5 @@ env:
   BILLER_URL: http://biller:8087
   PROCESSING_URL: http://processing:8085
 secretEnv:
+  DB_PASSWORD: DB_PASSWORD
   QUOTE_SECRET: QUOTE_SECRET

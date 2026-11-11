@@ -6,3 +6,6 @@ image:
 env:
   DB_URL: jdbc:postgresql://postgres:5432/payments
   KAFKA_BOOTSTRAP: kafka:9092
+# Из секрета payments-secrets (Vault → External Secrets, infra/secrets.yaml)
+secretEnv:
+  DB_PASSWORD: DB_PASSWORD

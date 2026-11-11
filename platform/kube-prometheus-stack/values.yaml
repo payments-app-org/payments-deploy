@@ -53,8 +53,8 @@ prometheus:
           namespace: traefik
 
 grafana:
-  # Пароль admin — в секрете grafana-admin (создаёт scripts/secrets.sh): сгенерированный чартом пароль
-  # менялся бы при каждой сверке Argo CD
+  # Пароль admin — в секрете grafana-admin: его создаёт External Secrets из Vault (secret/grafana, см. extraManifests
+  # ниже). Сгенерированный чартом пароль менялся бы при каждой сверке Argo CD
   admin:
     existingSecret: grafana-admin
   # Источник Alertmanager в Grafana — вместе с самим Alertmanager, позже
@@ -125,3 +125,23 @@ grafana:
         gnetId: 19004
         revision: 1
         datasource: Prometheus
+
+# Дополнительные объекты рядом с чартом
+extraManifests:
+  # Пароль admin Grafana: Vault secret/grafana → Secret grafana-admin (ключи admin-user, admin-password)
+  - apiVersion: external-secrets.io/v1
+    kind: ExternalSecret
+    metadata:
+      name: grafana-admin
+      annotations:
+        argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    spec:
+      refreshInterval: 1m
+      secretStoreRef:
+        kind: ClusterSecretStore
+        name: vault
+      target:
+        name: grafana-admin
+      dataFrom:
+        - extract:
+            key: grafana
