@@ -5,4 +5,4 @@ image:
 replicas: 1
 resources:
   cpu: 500m
-  memory: 384Mi
+  memory: 448Mi
