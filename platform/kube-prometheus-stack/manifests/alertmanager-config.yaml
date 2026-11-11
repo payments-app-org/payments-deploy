@@ -1,0 +1,57 @@
+# Настройка Alertmanager — кому и как отправлять тревоги. В ней токен бота и id чата, поэтому целиком она —
+# секрет: External Secrets собирает его по шаблону ниже из Vault secret/alertmanager (кладёт scripts/telegram.sh),
+# Alertmanager читает (alertmanager.alertmanagerSpec.configSecret в values.yaml).
+#
+# Маршрут тревоги:
+#   правило Prometheus сработало (PrometheusRule) → Alertmanager → группировка → Telegram
+#   group_by          тревоги с одним именем и namespace — одним сообщением, а не десятью
+#   group_wait 30s    первую тревогу группы ждём 30 с: вдруг придут соседние (упал узел — упали все поды)
+#   group_interval 5m новые тревоги в уже отправленной группе — не чаще раза в 5 минут
+#   repeat_interval   если не решено — напомнить через 4 часа
+#   inhibit_rules     есть critical — warning с тем же именем и namespace не шлём (меньше шума)
+#   Watchdog          тревога «система тревог жива», горит всегда. В проде её шлют во внешний сервис
+#                     (dead man's switch: перестала приходить — сломан сам мониторинг); у нас — в никуда
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: alertmanager-config
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  refreshInterval: 1m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: vault
+  target:
+    name: alertmanager-config
+    template:
+      engineVersion: v2
+      data:
+        alertmanager.yaml: |
+          route:
+            receiver: telegram
+            group_by: [alertname, namespace]
+            group_wait: 30s
+            group_interval: 5m
+            repeat_interval: 4h
+            routes:
+              - receiver: blackhole
+                matchers: ['alertname =~ "Watchdog|InfoInhibitor"']
+          inhibit_rules:
+            - source_matchers: [severity = critical]
+              target_matchers: [severity = warning]
+              equal: [alertname, namespace]
+          receivers:
+            - name: blackhole
+            - name: telegram
+              telegram_configs:
+                - bot_token: "{{ .bot_token }}"
+                  chat_id: {{ .chat_id }}
+                  parse_mode: HTML
+                  send_resolved: true
+          # Текст сообщения — шаблон telegram.default.message из ConfigMap alertmanager-templates
+          templates:
+            - /etc/alertmanager/configmaps/alertmanager-templates/*.tmpl
+  dataFrom:
+    - extract:
+        key: alertmanager

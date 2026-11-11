@@ -1,4 +1,4 @@
-# Метрики: Prometheus, Grafana, node-exporter, kube-state-metrics. Чарт и его версия — здесь, настройки —
+# Метрики и тревоги: Prometheus, Alertmanager, Grafana, node-exporter, kube-state-metrics. Чарт и его версия — здесь, настройки —
 # platform/kube-prometheus-stack/values.yaml (общие) и envs/prod/platform/kube-prometheus-stack.yaml (окружение)
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -22,6 +22,10 @@ spec:
     - repoURL: https://github.com/payments-app-org/payments-deploy.git
       targetRevision: main
       ref: values
+    # Наши объекты мониторинга: правила тревог, настройка и шаблоны Alertmanager, дашборды, пароль Grafana
+    - repoURL: https://github.com/payments-app-org/payments-deploy.git
+      targetRevision: main
+      path: platform/kube-prometheus-stack/manifests
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

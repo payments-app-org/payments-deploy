@@ -1,0 +1,20 @@
+# Текст сообщения в Telegram (Go template Alertmanager). Переопределяем стандартный шаблон telegram.default.message:
+# по-русски, с важностью, кратким и подробным описанием и ссылкой на правило. Подключается к поду Alertmanager
+# (alertmanager.alertmanagerSpec.configMaps) и к настройке (templates в alertmanager-config.yaml)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-templates
+data:
+  telegram.tmpl: |
+    {{ define "telegram.default.message" }}
+    {{- if eq .Status "firing" }}🔥 <b>Тревога</b>{{ else }}✅ <b>Решено</b>{{ end }} · {{ .CommonLabels.alertname }}
+    {{ range .Alerts }}
+    {{- if eq .Labels.severity "critical" }}🔴{{ else if eq .Labels.severity "warning" }}🟡{{ else }}⚪{{ end }} <b>{{ .Labels.severity }}</b>
+    {{- with .Labels.namespace }} · {{ . }}{{ end }}
+    {{- with .Labels.application }} · {{ . }}{{ end }}
+    {{- with .Labels.pod }} · {{ . }}{{ end }}
+    {{ with .Annotations.summary }}{{ . | html }}{{ end }}
+    {{ with .Annotations.description }}<i>{{ . | html }}</i>{{ end }}
+    {{ end }}
+    {{- end }}

@@ -72,6 +72,11 @@ spec:
               value: "true"
             - name: KC_METRICS_ENABLED
               value: "true"
+            # Счётчики событий пользователей (вход, ошибка входа, выход, обновление токена) — keycloak_user_events_total
+            - name: KC_EVENT_METRICS_USER_ENABLED
+              value: "true"
+            - name: KC_EVENT_METRICS_USER_EVENTS
+              value: login,login_error,logout,code_to_token,refresh_token,refresh_token_error
             # Один экземпляр: кэш сессий локальный, без кластера Infinispan (меньше памяти, без поиска соседей)
             - name: KC_CACHE
               value: local
