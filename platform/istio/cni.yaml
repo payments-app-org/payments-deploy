@@ -4,6 +4,10 @@
 profile: ambient
 global:
   platform: k3d
+# Где k3s ищет плагины CNI: свежие k3s — /var/lib/rancher/k3s/data/cni (профиль k3d ставит в другую папку,
+# и тогда ни один новый под в кластере не получает сеть: failed to find plugin "istio-cni")
+cniBinDir: /var/lib/rancher/k3s/data/cni
+cniConfDir: /var/lib/rancher/k3s/agent/etc/cni/net.d
 resources:
   requests: {cpu: 10m, memory: 32Mi}
   limits: {memory: 128Mi}
