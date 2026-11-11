@@ -59,9 +59,11 @@ path "secret/metadata/*" {
   capabilities = ["read", "list"]
 }
 EOF
-# Роль: токен сервисного аккаунта external-secrets из namespace external-secrets → политика external-secrets на час
+# Роль: токен сервисного аккаунта external-secrets из namespace external-secrets, выпущенный для Vault (aud=vault),
+# → политика external-secrets на час
 vault_token | vault_cmd write auth/kubernetes/role/external-secrets \
   bound_service_account_names=external-secrets \
   bound_service_account_namespaces=external-secrets \
+  audience=vault \
   policies=external-secrets ttl=1h >/dev/null
 echo "Vault настроен: secret/ (KV v2), вход external-secrets через Kubernetes"

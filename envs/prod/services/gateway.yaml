@@ -6,3 +6,6 @@ replicas: 1
 resources:
   cpu: 500m
   memory: 320Mi
+env:
+  # Издатель токенов — публичный адрес Keycloak в этом окружении (claim iss): gateway принимает только его токены
+  OIDC_ISSUER_URI: http://payments.localhost/auth/realms/payments

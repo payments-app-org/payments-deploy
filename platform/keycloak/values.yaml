@@ -1,0 +1,16 @@
+# Keycloak — вход пользователей по OpenID Connect: страница входа, выдача access- и refresh-токенов (JWT).
+# Шаблон — charts/keycloak (наш: официальный чарт есть только у оператора, а Bitnami закрыл образы).
+# Окружение (адрес, база, память) — envs/<окружение>/platform/keycloak.yaml.
+#
+# Как работает вход:
+#   1. Фронтенд без токена отправляет браузер на <приложение>/auth/realms/payments/protocol/openid-connect/auth
+#      (Authorization Code + PKCE)
+#   2. Пользователь вводит логин и пароль на странице Keycloak; Keycloak возвращает браузер с одноразовым кодом
+#   3. Фронтенд меняет код на access-токен (5 минут) и refresh-токен; каждый запрос в API — с заголовком
+#      Authorization: Bearer <access-токен>
+#   4. payments-gateway проверяет подпись токена (ключи Keycloak), срок, издателя и aud; userId = claim sub
+#   5. Access-токен истекает — фронтенд молча получает новый по refresh-токену (тот одноразовый, ротация)
+route:
+  gateway:
+    name: external
+    namespace: traefik

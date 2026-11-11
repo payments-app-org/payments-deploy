@@ -1,0 +1,24 @@
+# Значения по умолчанию. Общие настройки — platform/keycloak/values.yaml, окружение — envs/<окружение>/platform/keycloak.yaml
+image: quay.io/keycloak/keycloak:26.8.2
+
+# Публичный адрес приложения: Keycloak отвечает на <url>/auth (тот же хост, что и приложение)
+publicUrl: ""
+# Адреса фронтенда, куда Keycloak может вернуть пользователя после входа и выхода
+webUrls: []
+
+database:
+  url: ""
+  username: keycloak
+
+# Секрет (его создаёт External Secrets из Vault secret/keycloak): admin-password, db-password, demo-password
+secretName: keycloak
+
+route:
+  gateway:
+    name: ""
+    namespace: ""
+  hostnames: []
+
+resources:
+  requests: {cpu: 100m, memory: 448Mi}
+  limits: {cpu: "1", memory: 768Mi}

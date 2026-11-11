@@ -1,0 +1,6 @@
+apiVersion: v2
+name: keycloak
+description: Keycloak — вход пользователей (OpenID Connect) и realm payments. Настройки — platform/keycloak/values.yaml
+type: application
+version: 0.1.0
+appVersion: "26.8.2"

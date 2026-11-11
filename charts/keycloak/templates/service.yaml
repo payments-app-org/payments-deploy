@@ -1,0 +1,70 @@
+# Адрес внутри кластера: http://keycloak.keycloak:8080/auth (gateway берёт отсюда ключи подписи токенов),
+# порт 9000 — пробы и метрики
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+spec:
+  selector:
+    app.kubernetes.io/name: keycloak
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+    - name: management
+      port: 9000
+      targetPort: management
+---
+# Вход снаружи: <хост приложения>/auth → Keycloak (страница входа, токены, админка). Путь /auth длиннее «/»
+# фронтенда — Traefik выбирает самый длинный совпавший префикс
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: keycloak
+spec:
+  parentRefs:
+    - name: {{ required "route.gateway.name обязателен" .Values.route.gateway.name }}
+      namespace: {{ required "route.gateway.namespace обязателен" .Values.route.gateway.namespace }}
+  hostnames:
+    {{- toYaml (required "route.hostnames обязателен" .Values.route.hostnames) | nindent 4 }}
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /auth}
+      backendRefs:
+        - name: keycloak
+          port: 8080
+---
+# Метрики Keycloak (входы, ошибки входа, выдача токенов, JVM) — для Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: keycloak
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  endpoints:
+    - port: management
+      path: /auth/metrics
+      interval: 30s
+---
+# Пароли Keycloak: Vault secret/keycloak → Secret keycloak (admin-password, db-password, demo-password).
+# Значения создаёт scripts/secrets.sh
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: {{ .Values.secretName }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  refreshInterval: 1m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: vault
+  target:
+    name: {{ .Values.secretName }}
+  dataFrom:
+    - extract:
+        key: keycloak
