@@ -10,3 +10,6 @@ env:
   PRICING_URL: http://pricing:8082
   PAYMENT_URL: http://payment:8083
   BILLER_URL: http://biller:8087
+# Из секрета payments-secrets (Vault → External Secrets, infra/secrets.yaml)
+secretEnv:
+  DB_PASSWORD: DB_PASSWORD

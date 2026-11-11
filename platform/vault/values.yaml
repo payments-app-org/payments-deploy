@@ -1,0 +1,71 @@
+# Vault — хранилище секретов (чарт hashicorp/vault, версия — envs/<окружение>/apps/platform/vault.yaml).
+# Секреты живут здесь, в git их нет. В Kubernetes их переносит External Secrets Operator (platform/external-secrets):
+# объект ExternalSecret говорит «возьми ключи из Vault по пути X и создай Secret Y», приложения читают обычный Secret.
+# Первый запуск и настройка (ключ распечатывания, движок KV, вход для External Secrets) — scripts/vault-init.sh
+
+global:
+  # TLS внутри кластера — задача сервисной сетки (Istio, mTLS между подами), снаружи — Traefik
+  tlsDisable: true
+
+# Агент-инжектор (подкладывает секреты файлами в поды) не нужен: секреты доставляет External Secrets
+injector:
+  enabled: false
+
+server:
+  # Один экземпляр, данные в файлах на диске (PVC). В проде — 3–5 экземпляров с хранилищем raft
+  standalone:
+    enabled: true
+  dataStorage:
+    enabled: true
+    size: 1Gi
+  # Vault проверяет токены сервисных аккаунтов (вход External Secrets через Kubernetes) — ему нужна роль
+  # system:auth-delegator (TokenReview)
+  authDelegator:
+    enabled: true
+
+  # Распечатывание. После каждого перезапуска Vault «запечатан»: данные зашифрованы, ключ — только в памяти.
+  # В проде ключ хранит облачный KMS (auto-unseal: seal "awskms"/"gcpckms" в конфиге), Vault распечатывается сам.
+  # На ноутбуке KMS нет — эту роль играет соседний контейнер: раз в 10 с проверяет статус и, если Vault запечатан,
+  # распечатывает его ключом из секрета vault-unseal (его создаёт scripts/vault-init.sh). Секрет в том же кластере,
+  # что и Vault, — это упрощение для стенда, а не защита
+  extraContainers:
+    - name: unsealer
+      image: hashicorp/vault:2.0.4
+      command:
+        - sh
+        - -c
+        - |
+          while true; do
+            vault status >/dev/null 2>&1
+            # Код 2 — запечатан
+            if [ $? -eq 2 ] && [ -s /unseal/unseal-key ]; then
+              vault operator unseal "$(cat /unseal/unseal-key)" >/dev/null && echo "Vault распечатан"
+            fi
+            sleep 10
+          done
+      env:
+        - name: VAULT_ADDR
+          value: http://127.0.0.1:8200
+      volumeMounts:
+        - name: unseal
+          mountPath: /unseal
+          readOnly: true
+      resources:
+        requests: {cpu: 5m, memory: 16Mi}
+        limits: {memory: 48Mi}
+  volumes:
+    - name: unseal
+      secret:
+        secretName: vault-unseal
+        # До первой настройки секрета нет — контейнер просто ждёт
+        optional: true
+        items:
+          - key: unseal-key
+            path: unseal-key
+
+  # Интерфейс Vault — маршрут Gateway API к Traefik; хост — в настройках окружения
+  httproute:
+    enabled: true
+    parentRefs:
+      - name: external
+        namespace: traefik

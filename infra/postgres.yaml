@@ -40,8 +40,13 @@ spec:
               value: payments
             - name: POSTGRES_USER
               value: payments
+            # Пароль — из Vault (infra/secrets.yaml). Образ использует его только при создании пустой базы;
+            # сменить пароль у готовой базы — scripts/secrets.sh (ALTER USER)
             - name: POSTGRES_PASSWORD
-              value: payments
+              valueFrom:
+                secretKeyRef:
+                  name: payments-secrets
+                  key: DB_PASSWORD
             # Данные — в подпапке тома: в корне тома могут быть служебные файлы, initdb требует пустую папку
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata

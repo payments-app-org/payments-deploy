@@ -6,5 +6,6 @@ image:
 env:
   DB_URL: jdbc:postgresql://postgres:5432/payments
 secretEnv:
+  DB_PASSWORD: DB_PASSWORD
   CARD_HMAC_KEY: CARD_HMAC_KEY
   CARD_ENCRYPTION_KEY: CARD_ENCRYPTION_KEY

@@ -1,0 +1,10 @@
+# Vault в окружении prod: хост интерфейса, память
+server:
+  httproute:
+    hostnames: [vault.localhost]
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 192Mi

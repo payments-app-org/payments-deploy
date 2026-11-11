@@ -26,8 +26,15 @@ helm upgrade --install argocd argo-cd \
   --values platform/argocd/values.yaml --values "envs/$ENV/platform/argocd.yaml" \
   --set server.httproute.enabled=false --wait
 
-scripts/secrets.sh
 kubectl apply -f "envs/$ENV/root.yaml"
+
+# Секреты: Vault ставит Argo CD (первым, sync-wave -1). Дальше — инициализация Vault и запись секретов в него;
+# в Kubernetes их перенесёт External Secrets. Сервисы ждут свои секреты и стартуют, когда те появятся
+scripts/vault-init.sh
+echo "Жду Postgres (пароли базы)…"
+until kubectl -n payments get pod postgres-0 >/dev/null 2>&1; do sleep 5; done
+kubectl -n payments wait --for=condition=Ready pod/postgres-0 --timeout=15m
+scripts/secrets.sh
 
 echo
 echo "Готово. Argo CD разворачивает окружение $ENV (первый раз — несколько минут):"
@@ -36,3 +43,4 @@ echo "  kubectl get pods -n payments"
 echo "  http://argocd.localhost — логин admin, пароль:"
 echo "  kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo"
 echo "  http://payments.localhost — приложение, http://traefik.localhost/dashboard/ — маршруты Traefik"
+echo "  http://vault.localhost — Vault, токен: kubectl -n vault get secret vault-unseal -o jsonpath='{.data.root-token}' | base64 -d; echo"
