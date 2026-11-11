@@ -2,3 +2,16 @@
 server:
   httproute:
     hostnames: [argocd.localhost]
+
+# Контроллер держит в памяти копию всех объектов кластера; Go без подсказки отдаёт память системе неохотно
+# (на замере — 1 ГБ). GOMEMLIMIT — мягкая граница: ближе к ней сборщик мусора работает чаще, память не растёт
+controller:
+  env:
+    - name: GOMEMLIMIT
+      value: 450MiB
+  resources:
+    requests:
+      cpu: 100m
+      memory: 384Mi
+    limits:
+      memory: 640Mi
