@@ -46,3 +46,6 @@ extraObjects:
               serviceAccountRef:
                 name: external-secrets
                 namespace: external-secrets
+                # Токен выпускается «для Vault» (aud=vault): украденный, он не подойдёт к другим системам,
+                # а Vault не примет токен, выпущенный для чего-то другого
+                audiences: [vault]

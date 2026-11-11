@@ -1,0 +1,14 @@
+# Keycloak в окружении prod: адрес, база, память
+publicUrl: http://payments.localhost
+# Куда можно вернуть пользователя после входа: приложение в кластере и dev-сервер Vite (compose)
+webUrls:
+  - http://payments.localhost
+  - http://localhost:5173
+database:
+  # Postgres приложения, своя база keycloak и свой пользователь (создаёт scripts/secrets.sh)
+  url: jdbc:postgresql://postgres.payments:5432/keycloak
+route:
+  hostnames: [payments.localhost]
+resources:
+  requests: {cpu: 100m, memory: 448Mi}
+  limits: {cpu: "1", memory: 768Mi}

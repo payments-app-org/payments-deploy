@@ -11,5 +11,9 @@ env:
   HISTORY_URL: http://history:8086
   BILLER_URL: http://biller:8087
   AUTOPAYMENTS_URL: http://autopayments:8089
+  # Ключи подписи токенов Keycloak — по внутреннему адресу (издатель, iss, — в envs/<окружение>/services/gateway.yaml)
+  OIDC_JWK_SET_URI: http://keycloak.keycloak:8080/auth/realms/payments/protocol/openid-connect/certs
+  # Счётчики ограничения частоты запросов
+  REDIS_HOST: redis
 route:
   paths: [/api]

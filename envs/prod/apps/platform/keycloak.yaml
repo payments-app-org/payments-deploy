@@ -1,0 +1,29 @@
+# Вход пользователей (OpenID Connect). Шаблон — charts/keycloak, настройки — platform/keycloak/values.yaml (общие)
+# и envs/prod/platform/keycloak.yaml (окружение). Пароли — из Vault (External Secrets)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: platform
+  source:
+    repoURL: https://github.com/payments-app-org/payments-deploy.git
+    targetRevision: main
+    path: charts/keycloak
+    helm:
+      valueFiles:
+        - ../../platform/keycloak/values.yaml
+        - ../../envs/prod/platform/keycloak.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keycloak
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: [CreateNamespace=true]
+    retry:
+      limit: 10
+      backoff: {duration: 10s, factor: 2, maxDuration: 3m}

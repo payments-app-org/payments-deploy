@@ -1,0 +1,109 @@
+# Keycloak: один экземпляр, данные (пользователи, сессии, ключи подписи) — в Postgres (база keycloak).
+# Отвечает на <publicUrl>/auth: тот же хост, что и приложение, — браузеру не нужен CORS, а фронтенду —
+# настройка адреса под окружение (адрес входа = адрес страницы + /auth)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  # Один экземпляр с локальным кэшем: два одновременно (при обновлении) не согласуют кэш между собой
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak
+      annotations:
+        # Поменялся realm — перезапуск (импорт новых realm при старте)
+        checksum/realm: {{ include (print $.Template.BasePath "/realm.yaml") . | sha256sum }}
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: keycloak
+          image: {{ .Values.image }}
+          # start — боевой режим (start-dev — для разработки: H2 в файле, без проверок хоста).
+          # --import-realm — создать realm из /opt/keycloak/data/import, если его ещё нет
+          args: ["start", "--import-realm"]
+          env:
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: {{ required "database.url обязателен" .Values.database.url | quote }}
+            - name: KC_DB_USERNAME
+              value: {{ .Values.database.username }}
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.secretName }}, key: db-password}
+            # Временный администратор realm master — создаётся при первом старте, если админов ещё нет
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: admin
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.secretName }}, key: admin-password}
+            # Пароль демо-пользователя для импорта realm (${DEMO_PASSWORD} в realm.yaml)
+            - name: DEMO_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.secretName }}, key: demo-password}
+            # Адрес, который Keycloak пишет в токены (iss) и ссылки. Запросы изнутри кластера (gateway берёт
+            # ключи подписи по http://keycloak.keycloak:8080) получают ссылки на внутренний адрес
+            - name: KC_HOSTNAME
+              value: {{ required "publicUrl обязателен" .Values.publicUrl }}/auth
+            - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
+              value: "true"
+            - name: KC_HTTP_RELATIVE_PATH
+              value: /auth
+            # HTTPS заканчивается на входе (Traefik), внутрь — HTTP; адрес клиента — из заголовков X-Forwarded-*
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_PROXY_HEADERS
+              value: xforwarded
+            # Пробы и метрики — на отдельном порту управления 9000 (наружу не открыт)
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_METRICS_ENABLED
+              value: "true"
+            # Один экземпляр: кэш сессий локальный, без кластера Infinispan (меньше памяти, без поиска соседей)
+            - name: KC_CACHE
+              value: local
+            # Куча — 40% лимита (по умолчанию 70%): остальное — метаспейс Quarkus и кэш кода
+            - name: JAVA_OPTS_KC_HEAP
+              value: -XX:MaxRAMPercentage=40 -XX:InitialRAMPercentage=20
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 9000
+          # Первый старт — сборка конфигурации Quarkus и миграции базы (1–3 минуты)
+          startupProbe:
+            httpGet: {path: /auth/health/started, port: management}
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 120
+          livenessProbe:
+            httpGet: {path: /auth/health/live, port: management}
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet: {path: /auth/health/ready, port: management}
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: realm
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+      volumes:
+        - name: realm
+          configMap:
+            name: keycloak-realm

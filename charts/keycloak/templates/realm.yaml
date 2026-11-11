@@ -1,0 +1,92 @@
+# Realm payments — пространство пользователей и приложений нашего продукта (realm master — только для админки
+# самого Keycloak). Импортируется при первом старте (--import-realm); если realm уже есть, импорт пропускается —
+# дальше realm живёт в базе Keycloak. Поменяли здесь — удалить realm в админке или применить изменения вручную.
+# ${DEMO_PASSWORD} Keycloak подставляет из переменной окружения при импорте: пароля в git нет.
+#
+# Что настроено (в JSON комментариев нет — поясняем здесь):
+#   accessTokenLifespan 300         access-токен (JWT) живёт 5 минут: украденный быстро протухает
+#   ssoSessionIdleTimeout 1800      без действий 30 минут — сессия закрывается, нужен вход заново
+#   ssoSessionMaxLifespan 36000     сессия не дольше 10 часов, даже если пользователь активен
+#   revokeRefreshToken + MaxReuse 0 ротация refresh-токена: каждый можно использовать один раз, в ответ — новый.
+#                                   Повторное использование старого (кража) закрывает сессию
+#   bruteForceProtected             5 неверных паролей — временная блокировка
+#   payments-web                    публичный клиент (у SPA секрет не спрятать): Authorization Code + PKCE (S256);
+#                                   implicit и вход паролем напрямую (direct access grants) выключены — устарели
+#   audience payments-api           в access-токен пишется aud=payments-api: gateway принимает только токены для API
+#   пользователь artur              id = id в сервисе account (00000000-…-0001): claim sub токена — это userId
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm
+data:
+  payments-realm.json: |
+    {
+      "realm": "payments",
+      "displayName": "Payments",
+      "enabled": true,
+      "defaultLocale": "ru",
+      "internationalizationEnabled": true,
+      "supportedLocales": ["ru", "en"],
+      "registrationAllowed": false,
+      "resetPasswordAllowed": false,
+      "rememberMe": true,
+      "loginWithEmailAllowed": true,
+      "bruteForceProtected": true,
+      "failureFactor": 5,
+
+      "accessTokenLifespan": 300,
+      "ssoSessionIdleTimeout": 1800,
+      "ssoSessionMaxLifespan": 36000,
+      "revokeRefreshToken": true,
+      "refreshTokenMaxReuse": 0,
+
+      "clients": [
+        {
+          "clientId": "payments-web",
+          "name": "Payments — веб-приложение",
+          "description": "Фронтенд (SPA): вход по Authorization Code + PKCE, без секрета клиента",
+          "enabled": true,
+          "publicClient": true,
+          "protocol": "openid-connect",
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": false,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": false,
+          "frontchannelLogout": true,
+          "redirectUris": [{{ range $i, $u := .Values.webUrls }}{{ if $i }}, {{ end }}"{{ $u }}/*"{{ end }}],
+          "webOrigins": ["+"],
+          "attributes": {
+            "pkce.code.challenge.method": "S256",
+            "post.logout.redirect.uris": "{{ range $i, $u := .Values.webUrls }}{{ if $i }}##{{ end }}{{ $u }}/*{{ end }}"
+          },
+          "protocolMappers": [
+            {
+              "name": "audience payments-api",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-audience-mapper",
+              "config": {
+                "included.custom.audience": "payments-api",
+                "access.token.claim": "true",
+                "id.token.claim": "false",
+                "introspection.token.claim": "true"
+              }
+            }
+          ]
+        }
+      ],
+
+      "users": [
+        {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "username": "artur",
+          "firstName": "Артур",
+          "lastName": "Руднев",
+          "email": "artur@payments.localhost",
+          "emailVerified": true,
+          "enabled": true,
+          "credentials": [
+            {"type": "password", "value": "${DEMO_PASSWORD}", "temporary": false}
+          ]
+        }
+      ]
+    }
