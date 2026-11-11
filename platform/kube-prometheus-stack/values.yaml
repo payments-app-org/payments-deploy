@@ -3,11 +3,42 @@
 # Чарт prometheus-community/kube-prometheus-stack, версия — envs/<окружение>/apps/platform/kube-prometheus-stack.yaml.
 # Срок хранения, память, хосты — envs/<окружение>/platform/kube-prometheus-stack.yaml
 
-# Тревоги — отдельной задачей: Alertmanager (кому и как отправлять: Telegram…) и правила тревог пока не ставим
+# Тревоги: правила (PrometheusRule) проверяет Prometheus, сработавшие отправляет в Alertmanager, тот — в Telegram.
+# Свои правила, настройка Alertmanager и шаблон сообщения — в manifests/ рядом
 alertmanager:
-  enabled: false
+  enabled: true
+  alertmanagerSpec:
+    # Настройку (получатели, маршруты) пишем сами: в ней токен бота, поэтому это секрет из Vault
+    # (manifests/alertmanager-config.yaml). Чарт свою настройку не создаёт
+    useExistingSecret: true
+    configSecret: alertmanager-config
+    # Шаблон текста сообщений Telegram (manifests/alertmanager-templates.yaml) → /etc/alertmanager/configmaps/
+    configMaps: [alertmanager-templates]
+    # Хранить заглушенные тревоги (silence) и отправленные уведомления — 2 дня
+    retention: 48h
+  route:
+    main:
+      enabled: true
+      parentRefs:
+        - name: external
+          namespace: traefik
+
+# Готовые правила тревог Kubernetes и Prometheus (сообщество kube-prometheus): под перезапускается по кругу
+# (KubePodCrashLooping), не готов (KubePodNotReady), не хватает памяти или процессора, кончается диск, Prometheus
+# не собирает цель (TargetDown)… Выключены группы компонентов, которые мы не собираем (k3s — одна программа)
 defaultRules:
-  create: false
+  create: true
+  rules:
+    etcd: false
+    kubeApiserverAvailability: false
+    kubeApiserverBurnrate: false
+    kubeApiserverHistogram: false
+    kubeApiserverSlos: false
+    kubeControllerManager: false
+    kubeProxy: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+    windows: false
 
 # k3s собран в одну программу: метрики планировщика, контроллеров, etcd и kube-proxy отдельно не снять
 kubeControllerManager:
@@ -53,15 +84,19 @@ prometheus:
           namespace: traefik
 
 grafana:
-  # Пароль admin — в секрете grafana-admin: его создаёт External Secrets из Vault (secret/grafana, см. extraManifests
-  # ниже). Сгенерированный чартом пароль менялся бы при каждой сверке Argo CD
+  # Пароль admin — в секрете grafana-admin: его создаёт External Secrets из Vault (secret/grafana,
+  # manifests/grafana-admin.yaml). Сгенерированный чартом пароль менялся бы при каждой сверке Argo CD
   admin:
     existingSecret: grafana-admin
-  # Источник Alertmanager в Grafana — вместе с самим Alertmanager, позже
   sidecar:
-    datasources:
-      alertmanager:
-        enabled: false
+    # Дашборды — из ConfigMap с меткой grafana_dashboard; папка — из аннотации grafana_folder.
+    # Встроенные дашборды чарта (Kubernetes, Node Exporter, Prometheus) — в папку Kubernetes
+    dashboards:
+      folderAnnotation: grafana_folder
+      annotations:
+        grafana_folder: Kubernetes
+      provider:
+        foldersFromFilesStructure: true
   # Тестовый под Helm (helm test) не нужен: состояние проверяет Argo CD
   testFramework:
     enabled: false
@@ -125,23 +160,3 @@ grafana:
         gnetId: 19004
         revision: 1
         datasource: Prometheus
-
-# Дополнительные объекты рядом с чартом
-extraManifests:
-  # Пароль admin Grafana: Vault secret/grafana → Secret grafana-admin (ключи admin-user, admin-password)
-  - apiVersion: external-secrets.io/v1
-    kind: ExternalSecret
-    metadata:
-      name: grafana-admin
-      annotations:
-        argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-    spec:
-      refreshInterval: 1m
-      secretStoreRef:
-        kind: ClusterSecretStore
-        name: vault
-      target:
-        name: grafana-admin
-      dataFrom:
-        - extract:
-            key: grafana

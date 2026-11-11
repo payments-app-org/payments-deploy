@@ -1,0 +1,18 @@
+# Пароль admin Grafana: Vault secret/grafana → Secret grafana-admin (ключи admin-user, admin-password).
+# Значение создаёт scripts/secrets.sh, чарт читает секрет (grafana.admin.existingSecret)
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: grafana-admin
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  refreshInterval: 1m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: vault
+  target:
+    name: grafana-admin
+  dataFrom:
+    - extract:
+        key: grafana

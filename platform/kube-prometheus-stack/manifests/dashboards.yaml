@@ -1,0 +1,1521 @@
+# Дашборды Grafana кодом: ConfigMap с меткой grafana_dashboard подхватывает sidecar Grafana (без перезапуска),
+# папка — аннотация grafana_folder. Правки в интерфейсе Grafana не сохранятся при следующей синхронизации:
+# меняем здесь (JSON можно выгрузить из Grafana: Share → Export → Save to file).
+# Готовые дашборды с grafana.com (JVM, Spring Boot) — в values.yaml (grafana.dashboards)
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-payments-services
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: payments-app
+data:
+  payments-services.json: |
+    {
+     "uid": "payments-services",
+     "title": "Payments — сервисы",
+     "description": "Запросы, ошибки и время ответа сервисов, их ресурсы, JVM и Kafka",
+     "tags": [
+      "payments"
+     ],
+     "timezone": "browser",
+     "schemaVersion": 39,
+     "version": 1,
+     "editable": true,
+     "refresh": "30s",
+     "time": {
+      "from": "now-1h",
+      "to": "now"
+     },
+     "panels": [
+      {
+       "type": "row",
+       "title": "Сейчас",
+       "id": 1,
+       "collapsed": false,
+       "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+       },
+       "panels": []
+      },
+      {
+       "type": "stat",
+       "title": "Сервисы в строю",
+       "description": "Доля сервисов, у которых Prometheus забирает метрики (под жив и отвечает)",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum(up{namespace=\"payments\"}) / count(up{namespace=\"payments\"})",
+         "legendFormat": "",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "reduceOptions": {
+         "calcs": [
+          "lastNotNull"
+         ]
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value"
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "percentunit",
+         "thresholds": {
+          "mode": "absolute",
+          "steps": [
+           {
+            "color": "red",
+            "value": null
+           },
+           {
+            "color": "orange",
+            "value": 0.9
+           },
+           {
+            "color": "green",
+            "value": 1
+           }
+          ]
+         }
+        },
+        "overrides": []
+       },
+       "id": 2,
+       "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 6,
+        "h": 4
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "stat",
+       "title": "Запросов в секунду",
+       "description": "Все HTTP-запросы ко всем сервисам (через gateway и между сервисами)",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum(rate(http_server_requests_seconds_count{namespace=\"payments\",uri!~\"/actuator.*\"}[5m]))",
+         "legendFormat": "",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "reduceOptions": {
+         "calcs": [
+          "lastNotNull"
+         ]
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value"
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "reqps",
+         "thresholds": {
+          "mode": "absolute",
+          "steps": [
+           {
+            "color": "green",
+            "value": null
+           }
+          ]
+         },
+         "decimals": 2
+        },
+        "overrides": []
+       },
+       "id": 3,
+       "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 4
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "stat",
+       "title": "Ошибки 5xx",
+       "description": "Доля ответов с ошибкой сервера за 5 минут. Тревога — больше 5%",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum(rate(http_server_requests_seconds_count{namespace=\"payments\",uri!~\"/actuator.*\",status=~\"5..\"}[5m])) / sum(rate(http_server_requests_seconds_count{namespace=\"payments\",uri!~\"/actuator.*\"}[5m]))",
+         "legendFormat": "",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "reduceOptions": {
+         "calcs": [
+          "lastNotNull"
+         ]
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value"
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "percentunit",
+         "thresholds": {
+          "mode": "absolute",
+          "steps": [
+           {
+            "color": "green",
+            "value": null
+           },
+           {
+            "color": "orange",
+            "value": 0.01
+           },
+           {
+            "color": "red",
+            "value": 0.05
+           }
+          ]
+         }
+        },
+        "overrides": []
+       },
+       "id": 4,
+       "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 6,
+        "h": 4
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "stat",
+       "title": "Среднее время ответа",
+       "description": "Тревога — дольше 1 с у сервиса 10 минут",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum(rate(http_server_requests_seconds_sum{namespace=\"payments\",uri!~\"/actuator.*\"}[5m])) / sum(rate(http_server_requests_seconds_count{namespace=\"payments\",uri!~\"/actuator.*\"}[5m]))",
+         "legendFormat": "",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "reduceOptions": {
+         "calcs": [
+          "lastNotNull"
+         ]
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value"
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "s",
+         "thresholds": {
+          "mode": "absolute",
+          "steps": [
+           {
+            "color": "green",
+            "value": null
+           },
+           {
+            "color": "orange",
+            "value": 0.5
+           },
+           {
+            "color": "red",
+            "value": 1
+           }
+          ]
+         }
+        },
+        "overrides": []
+       },
+       "id": 5,
+       "gridPos": {
+        "x": 18,
+        "y": 1,
+        "w": 6,
+        "h": 4
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "row",
+       "title": "Запросы (RED: rate, errors, duration)",
+       "id": 6,
+       "collapsed": false,
+       "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+       },
+       "panels": []
+      },
+      {
+       "type": "timeseries",
+       "title": "Запросы в секунду по сервисам",
+       "description": "",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (application) (rate(http_server_requests_seconds_count{namespace=\"payments\",uri!~\"/actuator.*\"}[5m]))",
+         "legendFormat": "{{application}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "reqps",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 7,
+       "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "timeseries",
+       "title": "Ошибки по сервисам и кодам",
+       "description": "4xx — ошибка клиента (в том числе 401/403/429 gateway), 5xx — сервера",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (application, status) (rate(http_server_requests_seconds_count{namespace=\"payments\",uri!~\"/actuator.*\",status=~\"4..|5..\"}[5m]))",
+         "legendFormat": "{{application}} {{status}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "reqps",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 8,
+       "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 12,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "timeseries",
+       "title": "Среднее время ответа",
+       "description": "",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (application) (rate(http_server_requests_seconds_sum{namespace=\"payments\",uri!~\"/actuator.*\"}[5m])) / sum by (application) (rate(http_server_requests_seconds_count{namespace=\"payments\",uri!~\"/actuator.*\"}[5m]))",
+         "legendFormat": "{{application}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "s",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 9,
+       "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "table",
+       "title": "Самые частые запросы (5 мин)",
+       "description": "",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "topk(15, sum by (application, method, uri) (rate(http_server_requests_seconds_count{namespace=\"payments\",uri!~\"/actuator.*\"}[5m])))",
+         "legendFormat": "",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         },
+         "instant": true,
+         "format": "table"
+        }
+       ],
+       "options": {
+        "showHeader": true,
+        "sortBy": [
+         {
+          "displayName": "Value",
+          "desc": true
+         }
+        ]
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "reqps"
+        },
+        "overrides": []
+       },
+       "transformations": [
+        {
+         "id": "organize",
+         "options": {
+          "excludeByName": {
+           "Time": true
+          }
+         }
+        }
+       ],
+       "id": 10,
+       "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "row",
+       "title": "Ресурсы подов",
+       "id": 11,
+       "collapsed": false,
+       "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 1
+       },
+       "panels": []
+      },
+      {
+       "type": "timeseries",
+       "title": "Память подов",
+       "description": "Рабочий набор (то, что считает OOM killer). Лимиты — в envs/prod/services",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"payments\",container!=\"\"})",
+         "legendFormat": "{{pod}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "bytes",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 12,
+       "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 8,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "timeseries",
+       "title": "Процессор подов",
+       "description": "Предел Java-сервисов — 0,5 ядра",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"payments\",container!=\"\"}[5m]))",
+         "legendFormat": "{{pod}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "cores",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 13,
+       "gridPos": {
+        "x": 8,
+        "y": 23,
+        "w": 8,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "timeseries",
+       "title": "Перезапуски за час",
+       "description": "Растёт — под падает (OOMKilled, проба liveness)",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (pod) (increase(kube_pod_container_status_restarts_total{namespace=\"payments\"}[1h]))",
+         "legendFormat": "{{pod}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 14,
+       "gridPos": {
+        "x": 16,
+        "y": 23,
+        "w": 8,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "row",
+       "title": "JVM",
+       "id": 15,
+       "collapsed": false,
+       "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 1
+       },
+       "panels": []
+      },
+      {
+       "type": "timeseries",
+       "title": "Куча: занято",
+       "description": "",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (application) (jvm_memory_used_bytes{namespace=\"payments\",area=\"heap\"})",
+         "legendFormat": "{{application}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "bytes",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 16,
+       "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 8,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "timeseries",
+       "title": "Паузы сборщика мусора",
+       "description": "Доля времени, которую JVM стоит на сборке мусора",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (application) (rate(jvm_gc_pause_seconds_sum{namespace=\"payments\"}[5m]))",
+         "legendFormat": "{{application}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "percentunit",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 17,
+       "gridPos": {
+        "x": 8,
+        "y": 32,
+        "w": 8,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "timeseries",
+       "title": "Потоки",
+       "description": "",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (application) (jvm_threads_live_threads{namespace=\"payments\"})",
+         "legendFormat": "{{application}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 18,
+       "gridPos": {
+        "x": 16,
+        "y": 32,
+        "w": 8,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "row",
+       "title": "Kafka и устойчивость",
+       "id": 19,
+       "collapsed": false,
+       "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 1
+       },
+       "panels": []
+      },
+      {
+       "type": "timeseries",
+       "title": "Отставание читателей Kafka",
+       "description": "Сколько сообщений ещё не прочитано. Тревога — больше 100 за 10 минут",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "max by (application, topic) (kafka_consumer_fetch_manager_records_lag_max{namespace=\"payments\"})",
+         "legendFormat": "{{application}} {{topic}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 20,
+       "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 8,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "timeseries",
+       "title": "Сообщения в DLT",
+       "description": "Не обработаны после повторов — нужен разбор",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (application, topic) (increase(kafka_producer_topic_record_send_total{namespace=\"payments\",topic=~\".+-dlt\"}[10m]))",
+         "legendFormat": "{{application}} {{topic}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 21,
+       "gridPos": {
+        "x": 8,
+        "y": 41,
+        "w": 8,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "table",
+       "title": "Circuit breaker: открытые",
+       "description": "Пусто — все закрыты (вызовы соседей идут)",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "max by (application, name, state) (resilience4j_circuitbreaker_state{namespace=\"payments\",state!=\"closed\"}) == 1",
+         "legendFormat": "",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         },
+         "instant": true,
+         "format": "table"
+        }
+       ],
+       "options": {
+        "showHeader": true,
+        "sortBy": [
+         {
+          "displayName": "Value",
+          "desc": true
+         }
+        ]
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short"
+        },
+        "overrides": []
+       },
+       "transformations": [
+        {
+         "id": "organize",
+         "options": {
+          "excludeByName": {
+           "Time": true
+          }
+         }
+        }
+       ],
+       "id": 22,
+       "gridPos": {
+        "x": 16,
+        "y": 41,
+        "w": 8,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      }
+     ],
+     "templating": {
+      "list": []
+     },
+     "annotations": {
+      "list": []
+     }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-payments-security
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: payments-app
+data:
+  payments-security.json: |
+    {
+     "uid": "payments-security",
+     "title": "Payments — безопасность и платформа",
+     "description": "Входы в Keycloak, отказы gateway, синхронизация секретов из Vault, тревоги, память платформы",
+     "tags": [
+      "payments",
+      "security"
+     ],
+     "timezone": "browser",
+     "schemaVersion": 39,
+     "version": 1,
+     "editable": true,
+     "refresh": "30s",
+     "time": {
+      "from": "now-1h",
+      "to": "now"
+     },
+     "panels": [
+      {
+       "type": "row",
+       "title": "Вход (Keycloak) и gateway",
+       "id": 1,
+       "collapsed": false,
+       "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+       },
+       "panels": []
+      },
+      {
+       "type": "timeseries",
+       "title": "Входы и ошибки входа",
+       "description": "login_error растёт — неверные пароли или перебор (после 5 ошибок Keycloak блокирует)",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (event) (increase(keycloak_user_events_total{event=~\"login|login_error|logout\"}[5m]))",
+         "legendFormat": "{{event}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 2,
+       "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 8,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "timeseries",
+       "title": "Обновления токенов",
+       "description": "refresh_token_error — повтор старого refresh-токена или сессия закрыта",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (event) (increase(keycloak_user_events_total{event=~\"refresh_token|refresh_token_error|code_to_token\"}[5m]))",
+         "legendFormat": "{{event}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 3,
+       "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 8,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "timeseries",
+       "title": "Отказы gateway",
+       "description": "401 — нет или плохой токен, 403 — чужой пользователь, 429 — лимит запросов",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (status) (rate(http_server_requests_seconds_count{application=\"gateway\",status=~\"401|403|429\"}[5m]))",
+         "legendFormat": "{{status}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "reqps",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 4,
+       "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 8,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "row",
+       "title": "Секреты и тревоги",
+       "id": 5,
+       "collapsed": false,
+       "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 1
+       },
+       "panels": []
+      },
+      {
+       "type": "table",
+       "title": "Секреты из Vault (External Secrets)",
+       "description": "status=True — секрет синхронизирован из Vault",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "max by (namespace, name, status) (externalsecret_status_condition{condition=\"Ready\"}) == 1",
+         "legendFormat": "",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         },
+         "instant": true,
+         "format": "table"
+        }
+       ],
+       "options": {
+        "showHeader": true,
+        "sortBy": [
+         {
+          "displayName": "Value",
+          "desc": true
+         }
+        ]
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short"
+        },
+        "overrides": []
+       },
+       "transformations": [
+        {
+         "id": "organize",
+         "options": {
+          "excludeByName": {
+           "Time": true
+          }
+         }
+        }
+       ],
+       "id": 6,
+       "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 12,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "table",
+       "title": "Горящие тревоги",
+       "description": "То, что сейчас уходит в Telegram",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "ALERTS{alertstate=\"firing\", alertname!~\"Watchdog|InfoInhibitor\"}",
+         "legendFormat": "",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         },
+         "instant": true,
+         "format": "table"
+        }
+       ],
+       "options": {
+        "showHeader": true,
+        "sortBy": [
+         {
+          "displayName": "Value",
+          "desc": true
+         }
+        ]
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "short"
+        },
+        "overrides": []
+       },
+       "transformations": [
+        {
+         "id": "organize",
+         "options": {
+          "excludeByName": {
+           "Time": true,
+           "__name__": true,
+           "alertstate": true
+          }
+         }
+        }
+       ],
+       "id": 7,
+       "gridPos": {
+        "x": 12,
+        "y": 10,
+        "w": 12,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "row",
+       "title": "Платформа",
+       "id": 8,
+       "collapsed": false,
+       "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 1
+       },
+       "panels": []
+      },
+      {
+       "type": "timeseries",
+       "title": "Память платформы по namespace",
+       "description": "Всё, кроме сервисов: мониторинг, Argo CD, Vault, Keycloak, Istio",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum by (namespace) (container_memory_working_set_bytes{container!=\"\", namespace!=\"payments\"})",
+         "legendFormat": "{{namespace}}",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "bytes",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 9,
+       "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 12,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      },
+      {
+       "type": "timeseries",
+       "title": "Память кластера: занято из выделенного Docker",
+       "description": "",
+       "targets": [
+        {
+         "refId": "A",
+         "expr": "sum(container_memory_working_set_bytes{container!=\"\"})",
+         "legendFormat": "поды",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        },
+        {
+         "refId": "B",
+         "expr": "sum(machine_memory_bytes)",
+         "legendFormat": "весь узел",
+         "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+         }
+        }
+       ],
+       "options": {
+        "legend": {
+         "displayMode": "table",
+         "placement": "right",
+         "calcs": [
+          "lastNotNull",
+          "max"
+         ]
+        },
+        "tooltip": {
+         "mode": "multi",
+         "sort": "desc"
+        }
+       },
+       "fieldConfig": {
+        "defaults": {
+         "unit": "bytes",
+         "custom": {
+          "lineWidth": 1,
+          "fillOpacity": 10,
+          "showPoints": "never",
+          "stacking": {
+           "mode": "none"
+          }
+         }
+        },
+        "overrides": []
+       },
+       "id": 10,
+       "gridPos": {
+        "x": 12,
+        "y": 19,
+        "w": 12,
+        "h": 8
+       },
+       "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+       }
+      }
+     ],
+     "templating": {
+      "list": []
+     },
+     "annotations": {
+      "list": []
+     }
+    }

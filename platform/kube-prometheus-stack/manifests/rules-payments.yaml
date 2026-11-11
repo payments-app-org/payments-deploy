@@ -1,0 +1,107 @@
+# Правила тревог приложения payments-app. Общие тревоги Kubernetes (под перезапускается по кругу, не хватает
+# памяти, диск кончается, Prometheus не может собрать метрики) — готовые правила чарта (defaultRules в values.yaml).
+#
+# Правило = выражение PromQL + for (сколько оно должно быть истинным подряд, чтобы не будить из-за секундного
+# всплеска) + severity: critical — чинить сейчас, warning — посмотреть в рабочее время.
+# Prometheus проверяет правила раз в 30 с; сработавшие уходят в Alertmanager, оттуда — в Telegram
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: payments-app
+spec:
+  groups:
+    - name: payments-app
+      rules:
+        - alert: PaymentsServiceDown
+          # Prometheus не может забрать метрики сервиса: под упал, завис или не готов
+          expr: up{namespace="payments"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Сервис {{ $labels.job }} не отвечает"
+            description: "Prometheus 2 минуты не может забрать метрики {{ $labels.pod }}."
+
+        - alert: PaymentsHighErrorRate
+          # Доля ответов 5xx среди всех запросов к сервису (без проб и метрик /actuator)
+          expr: |
+            sum by (application) (rate(http_server_requests_seconds_count{namespace="payments", status=~"5..", uri!~"/actuator.*"}[5m]))
+              /
+            sum by (application) (rate(http_server_requests_seconds_count{namespace="payments", uri!~"/actuator.*"}[5m]))
+              > 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.application }}: больше 5% ошибок 5xx"
+            description: "Сейчас {{ $value | humanizePercentage }} запросов заканчиваются ошибкой сервера."
+
+        - alert: PaymentsSlowResponses
+          # Среднее время ответа за 5 минут (гистограмм у сервисов нет — считаем по сумме и числу)
+          expr: |
+            sum by (application) (rate(http_server_requests_seconds_sum{namespace="payments", uri!~"/actuator.*"}[5m]))
+              /
+            sum by (application) (rate(http_server_requests_seconds_count{namespace="payments", uri!~"/actuator.*"}[5m]))
+              > 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.application }}: медленные ответы"
+            description: "Среднее время ответа {{ $value | humanizeDuration }} (порог — 1 с) уже 10 минут."
+
+        - alert: PaymentsCircuitBreakerOpen
+          # Сервис перестал звать соседа: тот падал слишком часто (Resilience4j). Платежи получают отказ сразу
+          expr: max by (application, name) (resilience4j_circuitbreaker_state{namespace="payments", state=~"open|forced_open"}) == 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.application }}: открыт circuit breaker «{{ $labels.name }}»"
+            description: "Вызовы соседа {{ $labels.name }} не идут. Проверьте, жив ли он."
+
+        - alert: PaymentsDeadLetters
+          # Сообщение Kafka не обработали после повторов — оно ушло в DLT (<топик>.<группа>-dlt). Нужен разбор:
+          # GET /api/internal/dlt/{топик}, повтор — POST …/replay
+          expr: sum by (application, topic) (increase(kafka_producer_topic_record_send_total{namespace="payments", topic=~".+-dlt"}[10m])) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.application }}: сообщения в {{ $labels.topic }}"
+            description: "За 10 минут в DLT ушло {{ $value | humanize }} сообщений — событие не обработано."
+
+        - alert: PaymentsKafkaConsumerLag
+          # Читатель отстаёт: в топике копятся необработанные события (история не обновляется)
+          expr: max by (application, topic) (kafka_consumer_fetch_manager_records_lag_max{namespace="payments"}) > 100
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.application }} отстаёт в {{ $labels.topic }}"
+            description: "Необработанных сообщений: {{ $value | humanize }}."
+
+        - alert: PaymentsJvmHeapHigh
+          # Куча почти заполнена дольше 10 минут: скоро OutOfMemory и перезапуск
+          expr: |
+            sum by (application) (jvm_memory_used_bytes{namespace="payments", area="heap"})
+              /
+            sum by (application) (jvm_memory_max_bytes{namespace="payments", area="heap"})
+              > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.application }}: куча JVM занята на {{ $value | humanizePercentage }}"
+            description: "Утечка памяти или мало лимита — смотрите график JVM в Grafana."
+
+    - name: platform
+      rules:
+        - alert: ExternalSecretNotSynced
+          # Секрет из Vault не переносится в Kubernetes: Vault запечатан, нет прав или ключа
+          expr: max by (namespace, name) (externalsecret_status_condition{condition="Ready", status="False"}) == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Секрет {{ $labels.namespace }}/{{ $labels.name }} не синхронизируется из Vault"
+            description: "kubectl -n {{ $labels.namespace }} describe externalsecret {{ $labels.name }}"
