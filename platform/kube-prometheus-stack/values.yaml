@@ -39,6 +39,11 @@ defaultRules:
     kubeSchedulerAlerting: false
     kubeSchedulerRecording: false
     windows: false
+  # Отдельные правила, которые на k3d — ложная тревога: у узла (контейнер Docker) нет своей синхронизации времени,
+  # часы — у Mac, node-exporter этого не видит
+  disabled:
+    NodeClockNotSynchronising: true
+    NodeClockSkewDetected: true
 
 # k3s собран в одну программу: метрики планировщика, контроллеров, etcd и kube-proxy отдельно не снять
 kubeControllerManager:
