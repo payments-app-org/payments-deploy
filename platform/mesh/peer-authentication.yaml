@@ -11,3 +11,20 @@ metadata:
 spec:
   mtls:
     mode: STRICT
+---
+# Исключение — вход (Traefik): к нему приходят запросы снаружи кластера (браузер → балансировщик k3d), они не из
+# сетки и без сертификата. PERMISSIVE — принимать и обычные, и mTLS-соединения. Дальше, к gateway и фронтенду,
+# Traefik ходит по mTLS. В проде снаружи на вход приходит HTTPS, его расшифровывает сам вход
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: ingress
+  namespace: traefik
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  mtls:
+    mode: PERMISSIVE
