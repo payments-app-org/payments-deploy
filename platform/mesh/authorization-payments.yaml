@@ -1,0 +1,318 @@
+# Кто кому может звонить внутри namespace payments (Istio AuthorizationPolicy, проверяет ztunnel получателя).
+# Отправитель определяется не по IP, а по сертификату mTLS — идентичности его сервисного аккаунта
+# (cluster.local/ns/<namespace>/sa/<аккаунт>): подделать её, не украв ключ пода, нельзя.
+#
+# allow-nothing — запрет по умолчанию для всего namespace; ниже для каждого получателя — список отправителей.
+# Новый вызов между сервисами (новый *_URL в services/<сервис>.yaml) — добавить отправителя сюда, иначе соединение
+# оборвётся (в логе отправителя — Connection reset). Prometheus (метрики) пускаем ко всем.
+# Пробы Kubernetes (kubelet) правила не касаются: в ambient они идут мимо ztunnel
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-nothing
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec: {}
+---
+# gateway ← traefik, Prometheus · вход снаружи (Traefik)
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: gateway
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/traefik/sa/traefik
+              - cluster.local/ns/monitoring/sa/kube-prometheus-stack-prometheus
+---
+# frontend ← traefik, Prometheus · вход снаружи (Traefik)
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: frontend
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: frontend
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/traefik/sa/traefik
+              - cluster.local/ns/monitoring/sa/kube-prometheus-stack-prometheus
+---
+# account ← gateway, payment, pricing, autopayments, Prometheus
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: account
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: account
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/payments/sa/gateway
+              - cluster.local/ns/payments/sa/payment
+              - cluster.local/ns/payments/sa/pricing
+              - cluster.local/ns/payments/sa/autopayments
+              - cluster.local/ns/monitoring/sa/kube-prometheus-stack-prometheus
+---
+# pricing ← gateway, autopayments, Prometheus
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: pricing
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pricing
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/payments/sa/gateway
+              - cluster.local/ns/payments/sa/autopayments
+              - cluster.local/ns/monitoring/sa/kube-prometheus-stack-prometheus
+---
+# payment ← gateway, autopayments, processing, Prometheus · processing — итоги долгих переводов
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: payment
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/payments/sa/gateway
+              - cluster.local/ns/payments/sa/autopayments
+              - cluster.local/ns/payments/sa/processing
+              - cluster.local/ns/monitoring/sa/kube-prometheus-stack-prometheus
+---
+# history ← gateway, Prometheus
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: history
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: history
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/payments/sa/gateway
+              - cluster.local/ns/monitoring/sa/kube-prometheus-stack-prometheus
+---
+# biller ← gateway, payment, pricing, autopayments, Prometheus
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: biller
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: biller
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/payments/sa/gateway
+              - cluster.local/ns/payments/sa/payment
+              - cluster.local/ns/payments/sa/pricing
+              - cluster.local/ns/payments/sa/autopayments
+              - cluster.local/ns/monitoring/sa/kube-prometheus-stack-prometheus
+---
+# autopayments ← gateway, Prometheus
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: autopayments
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: autopayments
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/payments/sa/gateway
+              - cluster.local/ns/monitoring/sa/kube-prometheus-stack-prometheus
+---
+# fraud ← payment, Prometheus
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: fraud
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fraud
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/payments/sa/payment
+              - cluster.local/ns/monitoring/sa/kube-prometheus-stack-prometheus
+---
+# processing ← payment, biller, Prometheus · biller — перевод пожертвований
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: processing
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: processing
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/payments/sa/payment
+              - cluster.local/ns/payments/sa/biller
+              - cluster.local/ns/monitoring/sa/kube-prometheus-stack-prometheus
+---
+# providers ← biller, Prometheus
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: providers
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: providers
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/payments/sa/biller
+              - cluster.local/ns/monitoring/sa/kube-prometheus-stack-prometheus
+---
+# postgres ← keycloak, account, pricing, payment, history, biller, autopayments · keycloak — своя база
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: postgres
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/keycloak/sa/keycloak
+              - cluster.local/ns/payments/sa/account
+              - cluster.local/ns/payments/sa/pricing
+              - cluster.local/ns/payments/sa/payment
+              - cluster.local/ns/payments/sa/history
+              - cluster.local/ns/payments/sa/biller
+              - cluster.local/ns/payments/sa/autopayments
+---
+# redis ← gateway, payment, pricing, biller, autopayments, processing, providers
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: redis
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/payments/sa/gateway
+              - cluster.local/ns/payments/sa/payment
+              - cluster.local/ns/payments/sa/pricing
+              - cluster.local/ns/payments/sa/biller
+              - cluster.local/ns/payments/sa/autopayments
+              - cluster.local/ns/payments/sa/processing
+              - cluster.local/ns/payments/sa/providers
+---
+# kafka ← payment, history, biller · default — сама Kafka (брокер обращается к себе по адресу kafka:9092)
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: kafka
+  namespace: payments
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/payments/sa/default
+              - cluster.local/ns/payments/sa/payment
+              - cluster.local/ns/payments/sa/history
+              - cluster.local/ns/payments/sa/biller

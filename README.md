@@ -8,7 +8,7 @@
 
 1. PR в репозиторий сервиса (например, `payments-pricing`). CI проверяет его: тесты, Trivy, сборка образа.
 2. Слили PR в `main`. CI сервиса снова всё проверяет и публикует образ `ghcr.io/payments-app-org/payments-pricing:<sha>` в GitHub Container Registry.
-3. Задача `deploy` ждёт кнопки: в запуске CI — **Review deployments → prod → Approve and deploy** (окружение `prod` с обязательным подтверждением). После неё CI вызывает здесь `scripts/set-image.sh pricing <sha>` — тег попадает в `envs/prod/services/pricing.yaml` — и пушит коммит в `main` ключом развёртывания.
+3. Задача `deploy` (окружение `prod`: выкатка только из защищённой `main`). Подтверждение кнопкой (**Review deployments → prod → Approve and deploy**, аналог `when: manual` в GitLab) включается в настройках окружения репозитория — Required reviewers; на время тестов выключено. CI вызывает здесь `scripts/set-image.sh pricing <sha>` — тег попадает в `envs/prod/services/pricing.yaml` — и пушит коммит в `main` ключом развёртывания.
 4. Argo CD видит коммит и выкатывает pricing: новый под → readiness → старый под гасится. Остальные сервисы не трогаются.
 
 CI до кластера не достаёт: машины GitHub не видят ноутбук. Поэтому CI только пишет в git, а кластер сам забирает.
@@ -19,11 +19,14 @@ CI до кластера не достаёт: машины GitHub не видя�
 
 ```
 charts/                         наши шаблоны (Helm)
-  java-service/                 общий шаблон Java-сервисов: Deployment, Service, HTTPRoute, ServiceMonitor
+  java-service/                 общий шаблон Java-сервисов: Deployment, Service, ServiceAccount, HTTPRoute, ServiceMonitor
   frontend/                     nginx со статикой
+  keycloak/                     Keycloak и realm payments
 services/<сервис>.yaml          сервис во всех окружениях: порт, адреса соседей, секреты, пути входа
 platform/<компонент>/values.yaml  чужие чарты (Traefik, Argo CD…) — общие настройки
-infra/                          Postgres, Kafka, Redis — обычные манифесты
+platform/kube-prometheus-stack/manifests/  правила тревог, Alertmanager, дашборды Grafana
+platform/mesh/                  сервисная сетка: какие namespace в ней, mTLS, кто кому звонит, NetworkPolicy
+infra/                          Postgres, Kafka, Redis — обычные манифесты; секрет сервисов из Vault
 
 envs/prod/                      ← всё, чем отличается окружение prod
   root.yaml                     «главное» приложение Argo CD: создаёт всё из envs/prod/apps
@@ -37,7 +40,8 @@ envs/prod/                      ← всё, чем отличается окру
   platform/<компонент>.yaml     настройки компонента платформы в окружении: поды, память, хосты
 
 cluster/k3d.yaml                кластер: один узел, порт 80 ноутбука — вход
-scripts/                        cluster-up.sh — поднять всё; secrets.sh — секреты из payments-local/.env;
+scripts/                        cluster-up.sh — поднять всё; vault-init.sh — настроить Vault;
+                                secrets.sh — секреты в Vault; telegram.sh — бот тревог в Vault;
                                 set-image.sh — записать версию образа; check.sh — проверка (CI)
 ```
 
@@ -53,15 +57,17 @@ helm template pricing charts/java-service -f services/pricing.yaml -f envs/prod/
 ```
 браузер → localhost:80 → балансировщик k3d → Traefik (Ingress-контроллер)
   по правилам Gateway API (Gateway «external» + маршруты HTTPRoute):
-    payments.localhost/api/…    → gateway (payments-gateway) → account, pricing, payment, history, biller, autopayments
+    payments.localhost/api/…    → gateway (payments-gateway, проверяет токен) → account, pricing, payment, …
+    payments.localhost/auth/…   → Keycloak (страница входа, токены)
     payments.localhost/         → frontend
     argocd.localhost            → Argo CD
-    grafana.localhost, prometheus.localhost, jaeger.localhost → наблюдаемость
+    grafana.localhost, prometheus.localhost, alertmanager.localhost, jaeger.localhost → наблюдаемость
+    vault.localhost             → Vault
     traefik.localhost           → панель Traefik (какие маршруты он видит)
 ```
 
 - **Traefik** — поды, которые принимают все запросы снаружи. Ставит его Argo CD из чарта (`envs/prod/apps/platform/traefik.yaml`), настройки — `platform/traefik/values.yaml` и `envs/prod/platform/traefik.yaml`. Встроенный в k3s Traefik выключен (`cluster/k3d.yaml`), чтобы версия и настройки были здесь.
-- **payments-gateway** — наш API Gateway (Spring Cloud Gateway): весь `/api` идёт через него, он разводит запросы по сервисам (маршруты — в его `application.yml`). У самих сервисов маршрутов снаружи нет: внутренний API (`/api/internal/**`) снаружи недоступен. Дальше в gateway — проверка токена (Keycloak) и ограничение частоты запросов.
+- **payments-gateway** — наш API Gateway (Spring Cloud Gateway): весь `/api` идёт через него, он разводит запросы по сервисам (маршруты — в его `application.yml`). У самих сервисов маршрутов снаружи нет: внутренний API (`/api/internal/**`) снаружи недоступен. Gateway проверяет access-токен Keycloak, ставит сервисам `X-User-Id` из токена и ограничивает частоту запросов (Redis).
 - **Gateway API** — язык правил входа, на смену Ingress: `Gateway` — сам вход (порт, хосты; его создаёт чарт Traefik), `HTTPRoute` — маршрут сервиса (`charts/*/templates/httproute.yaml`). Типы Gateway API ставятся отдельным приложением `gateway-api`.
 
 ## Ресурсы и одновременный старт
@@ -82,9 +88,21 @@ helm template pricing charts/java-service -f services/pricing.yaml -f envs/prod/
 | Логи | Alloy читает логи всех подов → Loki хранит 3 дня | Grafana → Explore → Loki: `{namespace="payments", app="payment"}` |
 | Трассы | сервисы отправляют по OTLP → Jaeger (в памяти, последние 20 000) | http://jaeger.localhost или Grafana → Explore → Jaeger |
 
-Grafana: логин `admin`, пароль — `kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d` (секрет создаёт `scripts/secrets.sh`). Из строки лога с `traceId` — переход к трассе, из трассы — к логам этого запроса.
+Grafana: логин `admin`, пароль — `kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d` (из Vault). Из строки лога с `traceId` — переход к трассе, из трассы — к логам этого запроса. Свои дашборды — папка payments-app: «Payments — сервисы» (запросы, ошибки, время ответа, ресурсы, JVM, Kafka) и «Payments — безопасность и платформа» (входы Keycloak, отказы gateway, секреты Vault, тревоги); код — `platform/kube-prometheus-stack/manifests/dashboards.yaml`.
 
-**Тревоги пока не настроены**: Alertmanager и правила тревог выключены (`alertmanager.enabled`, `defaultRules.create` в `platform/kube-prometheus-stack/values.yaml`) — отдельная задача (Alertmanager → Telegram).
+**Тревоги**: правило Prometheus (PrometheusRule) сработало → Alertmanager (http://alertmanager.localhost) группирует → Telegram-бот. Правила — готовые kube-prometheus (поды, узел, Prometheus) и свои (`manifests/rules-payments.yaml`: сервис не отвечает, 5xx > 5%, медленно, circuit breaker, DLT, отставание Kafka, куча JVM, секрет не синхронизирован). Настройка Alertmanager — секрет из Vault (токен бота и чат кладёт `scripts/telegram.sh`), текст сообщения — `manifests/alertmanager-templates.yaml`.
+
+## Безопасность
+
+| Слой | Что делает | Где |
+|---|---|---|
+| Keycloak | вход пользователя (Authorization Code + PKCE), access-токен 5 минут, refresh-токен с ротацией | `charts/keycloak`, http://payments.localhost/auth/admin (логин `admin`, пароль — `kubectl -n keycloak get secret keycloak -o jsonpath='{.data.admin-password}' \| base64 -d`) |
+| payments-gateway | проверяет токен (подпись, срок, iss, aud), `X-User-Id` — из токена, чужой id — 403, 20 запросов/с на пользователя | репозиторий payments-gateway |
+| Istio (ambient) | mTLS между подами (STRICT), «кто кому звонит» по сертификату сервисного аккаунта | `platform/mesh`, `platform/istio` |
+| NetworkPolicy | входящие в payments и keycloak — только из namespace платформы | `platform/mesh/network-policies.yaml` |
+| Vault + External Secrets | секреты не в git и не в скриптах: Vault → Secret Kubernetes | `platform/vault`, `platform/external-secrets`, `scripts/vault-init.sh`, `secrets.sh` |
+
+Демо-пользователь Keycloak — `artur` (id = id в account), пароль: `kubectl -n keycloak get secret keycloak -o jsonpath='{.data.demo-password}' | base64 -d`. Токен Vault (root): `kubectl -n vault get secret vault-unseal -o jsonpath='{.data.root-token}' | base64 -d` — http://vault.localhost.
 
 ## Argo CD: что где настраивается
 
@@ -92,6 +110,10 @@ Grafana: логин `admin`, пароль — `kubectl -n monitoring get secret 
 - **Что развернуть** — `envs/prod/apps/`. Приложение (Application) = откуда взять описание (репозиторий, путь или чарт и версия, файлы настроек) + куда поставить (namespace) + как синхронизировать: `automated` — само, без кнопки Sync; `prune` — удалили из git → удалить из кластера; `selfHeal` — поправили кластер руками → вернуть как в git; `retry` — не получилось (например, ещё нет нужных типов) → повторить.
 - **Проекты** — `envs/prod/apps/projects.yaml`: `payments` может ставить только из этого репозитория и только в namespace `payments`; `platform` — из чартов производителей в любой namespace.
 - Кнопки интерфейса (Sync, Refresh, удаление пода) ничего не сохраняют надолго: что не в git — Argo CD вернёт.
+
+**После перезагрузки ноутбука**: кластер поднимается сам за 5–10 минут (Vault распечатывается сам). Если какой-то сервис
+недоступен соседям, а в логах ztunnel `Connection refused` на порт 15008 (под не подключился к сетке, пока стартовал
+istio-cni), — пересоздать под: `kubectl -n <namespace> delete pod <под>`.
 
 ## Запуск
 
@@ -121,13 +143,16 @@ k3d cluster delete payments               # удалить кластер вме
 - **Шаблон** — PR в `charts/`: действует на все сервисы сразу. Перед слиянием посмотреть `helm template` нескольких сервисов.
 - **Новый сервис** — строка в `envs/<окружение>/apps/services.yaml` + `services/<сервис>.yaml` + `envs/<окружение>/services/<сервис>.yaml`. Если у сервиса своя схема — `infra/postgres.yaml` (база уже создана — схему добавить руками или пересоздать кластер).
 - **Компонент платформы** — версия чарта в `envs/<окружение>/apps/platform/<компонент>.yaml`, настройки — `platform/<компонент>/values.yaml` и `envs/<окружение>/platform/<компонент>.yaml`.
-- **Секреты** в git не кладём. Секрет `payments-secrets` создаёт `scripts/secrets.sh` из `payments-local/.env`. Поменяли ключи — запустить скрипт и `kubectl -n payments rollout restart deployment`.
+- **Секреты** в git не кладём: они в Vault, в Kubernetes их переносит External Secrets (объект ExternalSecret рядом с тем, кто читает). Ключи сервисов — `scripts/secrets.sh` из `payments-local/.env`; поменяли — запустить скрипт и `kubectl -n payments rollout restart deployment`. Другое значение — `vault kv put secret/<путь> …` (интерфейс http://vault.localhost).
+- **Новый вызов между сервисами** — отправителя в `platform/mesh/authorization-payments.yaml`, иначе сетка не пропустит.
 - **CI** этого репозитория — `scripts/check.sh` (запускается и локально): шаблоны сервисов с настройками каждого окружения, чарты платформы с нашими настройками, YAML, shellcheck. Проверка — `ok`. `main` защищён: без PR и зелёной `ok` не изменить. Исключение — ключ развёртывания (deploy key) CI сервисов: им пишутся только новые теги образов.
 
 ## Упрощения
 
 - Одно окружение. Обычно перед продом есть тестовое, но на ноутбуке два не помещаются; структура `envs/` к ним готова.
 - Postgres, Kafka и Redis — по одному экземпляру, без реплик и бэкапов, одинаковые для всех окружений (`infra/`).
-- Пароль Postgres открытым текстом — как в compose. Ключи сервисов — в секрете, но не в git.
+- Ключ распечатывания и root-токен Vault — в секрете того же кластера (в проде — auto-unseal через KMS, root-токен отзывают).
+- Сервисы доверяют `X-User-Id` от gateway и токен сами не проверяют: защищает сетка (до сервиса доходит только тот, кому разрешено).
+- Правила сетки — уровня соединения (L4): «gateway может звонить payment». Правила по путям и методам требуют waypoint-прокси Istio — не ставим.
 - Чарты без версий: изменение шаблона сразу действует на все сервисы.
 - Вход только по HTTP: на `localhost` сертификаты не нужны.

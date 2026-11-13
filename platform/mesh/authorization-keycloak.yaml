@@ -1,0 +1,21 @@
+# Кто может звонить Keycloak: Traefik (браузер — страница входа и токены), gateway (ключи подписи токенов),
+# Prometheus (метрики). Остальным — нет
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: keycloak
+  namespace: keycloak
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - cluster.local/ns/traefik/sa/traefik
+              - cluster.local/ns/payments/sa/gateway
+              - cluster.local/ns/monitoring/sa/kube-prometheus-stack-prometheus

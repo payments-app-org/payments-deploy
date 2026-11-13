@@ -1,0 +1,13 @@
+# mTLS обязателен (STRICT) во всей сетке: под в сетке принимает только зашифрованные соединения с сертификатом
+# отправителя. Незашифрованный запрос (под вне сетки, kubectl run curl …) до сервиса не дойдёт.
+# Объект в istio-system действует на все namespace
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  mtls:
+    mode: STRICT
