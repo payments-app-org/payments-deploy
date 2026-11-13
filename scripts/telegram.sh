@@ -12,9 +12,12 @@ cd "$(dirname "$0")/.."
 # shellcheck source=scripts/vault-lib.sh
 . scripts/vault-lib.sh
 
-read -rsp "Токен бота от @BotFather: " token
+read -rsp "Токен бота от @BotFather (ввод скрыт, вставьте и нажмите Enter): " input
 echo
-[[ $token =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]] || { echo "Это не похоже на токен бота" >&2; exit 1; }
+# Терминал при вставке оборачивает текст служебными символами (bracketed paste: ESC[200~ … ESC[201~),
+# могут попасть пробелы — берём из ввода только сам токен
+[[ $input =~ ([0-9]{6,}:[A-Za-z0-9_-]{30,}) ]] || { echo "Это не похоже на токен бота (123456789:AA…)" >&2; exit 1; }
+token=${BASH_REMATCH[1]}
 
 # Запрос к Bot API: адрес с токеном — через stdin curl (-K -), а не аргументом
 telegram() {
