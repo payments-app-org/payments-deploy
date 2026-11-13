@@ -295,7 +295,7 @@ spec:
               - cluster.local/ns/payments/sa/processing
               - cluster.local/ns/payments/sa/providers
 ---
-# kafka ← payment, history, biller
+# kafka ← payment, history, biller · default — сама Kafka (брокер обращается к себе по адресу kafka:9092)
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
@@ -312,6 +312,7 @@ spec:
     - from:
         - source:
             principals:
+              - cluster.local/ns/payments/sa/default
               - cluster.local/ns/payments/sa/payment
               - cluster.local/ns/payments/sa/history
               - cluster.local/ns/payments/sa/biller
