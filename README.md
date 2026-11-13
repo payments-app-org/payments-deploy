@@ -111,6 +111,10 @@ Grafana: логин `admin`, пароль — `kubectl -n monitoring get secret 
 - **Проекты** — `envs/prod/apps/projects.yaml`: `payments` может ставить только из этого репозитория и только в namespace `payments`; `platform` — из чартов производителей в любой namespace.
 - Кнопки интерфейса (Sync, Refresh, удаление пода) ничего не сохраняют надолго: что не в git — Argo CD вернёт.
 
+**После перезагрузки ноутбука**: кластер поднимается сам за 5–10 минут (Vault распечатывается сам). Если какой-то сервис
+недоступен соседям, а в логах ztunnel `Connection refused` на порт 15008 (под не подключился к сетке, пока стартовал
+istio-cni), — пересоздать под: `kubectl -n <namespace> delete pod <под>`.
+
 ## Запуск
 
 Нужны Docker, `k3d`, `kubectl`, `helm`. Кластер и docker compose вместе в память не помещаются: перед запуском кластера остановите compose (`docker compose stop` в `payments-local`).

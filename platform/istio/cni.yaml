@@ -6,6 +6,11 @@ profile: ambient
 # (failed to find plugin "istio-cni"). Поэтому папки — явно, без профиля платформы
 cniBinDir: /var/lib/rancher/k3s/data/cni
 cniConfDir: /var/lib/rancher/k3s/agent/etc/cni/net.d
+# После перезагрузки ноутбука поды стартуют одновременно с агентом istio-cni: если в этот момент не удалось
+# проверить, в сетке ли под (API ещё не отвечает), без повтора под остаётся вне ztunnel — соседи получают
+# Connection refused на порт 15008. С повтором агент доделывает подключение сам
+ambient:
+  enableAmbientDetectionRetry: true
 resources:
   requests: {cpu: 10m, memory: 32Mi}
   limits: {memory: 128Mi}
